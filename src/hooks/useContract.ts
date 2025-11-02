@@ -1,28 +1,49 @@
-import { createWalletClient, custom, createPublicClient, http } from "viem";
+import {
+  createWalletClient,
+  custom,
+  createPublicClient,
+  http,
+} from "viem";
 import { base } from "viem/chains";
 import contractABI from "../abi/SmartContractDetective.json";
 import { sdk } from "@farcaster/miniapp-sdk";
 
-export const contractAddress = "0xfbc5fbe823f76964de240433ad00651a76c672c8";
+export const contractAddress =
+  "0xfbc5fbe823f76964de240433ad00651a76c672c8";
 
 /**
- * Получение Farcaster provider, если miniapp запущен внутри клиента
+ * Получает Farcaster provider (новый API)
+ * Если miniapp запущен в Farcaster — вернёт встроенный кошелёк
+ * Если нет — fallback к WalletConnect (через window.ethereum)
  */
 export async function getFarcasterProvider(sdkInstance: typeof sdk) {
   try {
-    const provider = await sdkInstance.wallet.requestProvider();
-    return provider;
+    // ✅ Новый API: провайдер доступен напрямую
+    const provider = sdkInstance.wallet?.ethProvider;
+
+    if (provider) {
+      console.log("🟢 Farcaster provider detected");
+      return provider;
+    }
+
+    // 🔄 fallback — если miniapp открыт вне Farcaster (например, в браузере)
+    if (typeof window !== "undefined" && (window as any).ethereum) {
+      console.log("🟡 Using browser or WalletConnect provider");
+      return (window as any).ethereum;
+    }
+
+    throw new Error("No provider found (Farcaster or WalletConnect).");
   } catch (err) {
-    console.error("❌ Failed to get Farcaster provider:", err);
+    console.error("❌ Failed to get provider:", err);
     return null;
   }
 }
 
 /**
- * Старт расследования (вызов startCase)
- * @param provider - EIP-1193 провайдер
- * @param caseId - ID кейса
- * @param value - ETH value (по умолчанию 0n)
+ * Старт расследования (startCase)
+ * @param provider EIP-1193 provider
+ * @param caseId ID кейса
+ * @param value Сумма в wei (по умолчанию 0n — без оплаты)
  */
 export async function startCaseTx(
   provider: any,
@@ -54,10 +75,10 @@ export async function startCaseTx(
 }
 
 /**
- * Завершение расследования (вызов completeCase)
- * @param provider - EIP-1193 провайдер
- * @param caseId - ID кейса
- * @param result - результат (1, 2, 3)
+ * Завершение расследования (completeCase)
+ * @param provider EIP-1193 provider
+ * @param caseId ID кейса
+ * @param result Результат (1, 2, 3)
  */
 export async function completeCaseTx(
   provider: any,
@@ -88,10 +109,9 @@ export async function completeCaseTx(
 }
 
 /**
- * Получение статуса расследования из контракта (только чтение)
- * Проверяет, проходил ли пользователь квест, и возвращает его данные
- * @param address - адрес игрока
- * @param caseId - ID кейса
+ * Получает статус расследования для игрока (view-функция)
+ * @param address адрес игрока
+ * @param caseId ID кейса
  */
 export async function getCaseStatus(address: string, caseId: number) {
   try {
@@ -102,12 +122,12 @@ export async function getCaseStatus(address: string, caseId: number) {
 
     console.log("🔍 getCaseStatus:", { address, caseId });
 
-    // ⚠️ ВАЖНО: название view-функции должно совпадать с контрактом
-    // Ниже пример — замени "getCase" на фактическую view-функцию в ABI
+    // ⚠️ ЗАМЕНИ имя функции ниже, если в контракте оно другое
+    // например: "playerCases" или "cases"
     const data = await publicClient.readContract({
       address: contractAddress as `0x${string}`,
       abi: contractABI,
-      functionName: "getCase",
+      functionName: "getCase", // <-- если контракт возвращает структуру по игроку
       args: [address, caseId],
     });
 
