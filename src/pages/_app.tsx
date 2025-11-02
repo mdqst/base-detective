@@ -3,13 +3,11 @@ import type { AppProps } from "next/app";
 import dynamic from "next/dynamic";
 import { WagmiConfig, createConfig, http } from "wagmi";
 import { base } from "wagmi/chains";
-import { getDefaultConfig } from "connectkit";
+import { getDefaultConfig } from "connectkit/dist/es/getDefaultConfig";
 
+// ✅ import ConnectKitProvider from its ESM bundle directly
 const ConnectKitProvider = dynamic(
-  async () => {
-    const mod = await import("connectkit");
-    return mod.ConnectKitProvider;
-  },
+  async () => (await import("connectkit/dist/es/ConnectKitProvider")).ConnectKitProvider,
   { ssr: false }
 );
 
