@@ -7,7 +7,6 @@ import { ConnectKitProvider, getDefaultConfig } from "connectkit";
 const config = createConfig(
   getDefaultConfig({
     appName: "Base Detective",
-    alchemyId: undefined,
     walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "YOUR_WALLETCONNECT_PROJECT_ID",
     chains: [base],
     transports: {
