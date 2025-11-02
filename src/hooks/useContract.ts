@@ -5,8 +5,11 @@ import {
   http,
 } from "viem";
 import { base } from "viem/chains";
-import contractABI from "../abi/SmartContractDetective.json";
+import contractFull from "../abi/SmartContractDetective.json";
 import { sdk } from "@farcaster/miniapp-sdk";
+
+// ✅ Вытаскиваем ABI из Remix JSON (если это compile output)
+const contractABI = (contractFull as any).abi || contractFull;
 
 export const contractAddress =
   "0xfbc5fbe823f76964de240433ad00651a76c672c8";
