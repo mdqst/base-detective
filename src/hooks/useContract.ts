@@ -43,12 +43,12 @@ export async function getFarcasterProvider(sdkInstance: typeof sdk) {
  * Старт расследования (startCase)
  * @param provider EIP-1193 provider
  * @param caseId ID кейса
- * @param value Сумма в wei (по умолчанию 0n — без оплаты)
+ * @param value Сумма в wei (по умолчанию BigInt(0) — без оплаты)
  */
 export async function startCaseTx(
   provider: any,
   caseId: number,
-  value: bigint = 0n
+  value: bigint = BigInt(0)
 ) {
   if (!provider) throw new Error("No provider connected");
 
