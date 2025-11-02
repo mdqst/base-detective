@@ -3,10 +3,10 @@ import type { AppProps } from "next/app";
 import dynamic from "next/dynamic";
 import { WagmiConfig, http, createConfig } from "wagmi";
 import { base } from "wagmi/chains";
-import { getDefaultConfig } from "connectkit";
+import { getDefaultConfig } from "connectkit/build";
 
 const ConnectKitProvider = dynamic(
-  async () => (await import("connectkit")).ConnectKitProvider,
+  async () => (await import("connectkit/build")).ConnectKitProvider,
   { ssr: false }
 );
 
