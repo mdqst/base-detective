@@ -1,0 +1,7 @@
+{
+  "name": "Base Detective",
+  "description": "A text-based blockchain investigation miniapp built for Farcaster.",
+  "icon_url": "https://base-detective.vercel.app/icon.png",
+  "url": "https://base-detective.vercel.app",
+  "type": "miniapp"
+}

@@ -1,0 +1,97 @@
+{
+  "caseId": 1,
+  "title": "The DAO Heist",
+  "intro": "A mysterious DAO treasury lost 10 ETH overnight. As a blockchain investigator on Base, your job is to uncover what happened and find the culprit.",
+  "questions": [
+    {
+      "id": 1,
+      "text": "The DAO multisig was upgraded just hours before the attack. What’s your first move?",
+      "answers": [
+        "Inspect the new implementation contract for vulnerabilities.",
+        "Ask the team who initiated the upgrade.",
+        "Publicly accuse the lead developer."
+      ]
+    },
+    {
+      "id": 2,
+      "text": "You discover a suspicious delegatecall in the upgrade transaction. What could it mean?",
+      "answers": [
+        "It allowed external code execution — a potential exploit vector.",
+        "Just a harmless proxy upgrade pattern.",
+        "Probably a hacker’s signature move named DelegateCall."
+      ]
+    },
+    {
+      "id": 3,
+      "text": "A developer’s GitHub shows an old private key leak. What do you do?",
+      "answers": [
+        "Verify commits and search for exposed keys or wallet addresses.",
+        "Ignore it — it’s probably outdated.",
+        "Share the leak in memes to raise awareness."
+      ]
+    },
+    {
+      "id": 4,
+      "text": "You see the attacker’s wallet interacting with a Tornado-like mixer. What’s next?",
+      "answers": [
+        "Trace the deposits and withdrawals to find recurring patterns.",
+        "Hope the mixer posts a public confession.",
+        "Tweet angrily about mixers being evil."
+      ]
+    },
+    {
+      "id": 5,
+      "text": "You find a small 'dry run' transaction three days before the hack. What’s your conclusion?",
+      "answers": [
+        "The attacker tested the exploit beforehand.",
+        "The DAO was performing internal tests.",
+        "A bored dev was benchmarking gas fees."
+      ]
+    },
+    {
+      "id": 6,
+      "text": "Funds were bridged to Base right after the exploit. What will you do?",
+      "answers": [
+        "Follow the funds through the bridge contract and exchanges.",
+        "Report the wallet address to the Base security team.",
+        "Send 0.001 ETH with the note ‘I see you 👀’."
+      ]
+    },
+    {
+      "id": 7,
+      "text": "You analyze DAO multisig signatures and see identical timestamps. What does that suggest?",
+      "answers": [
+        "Signatures might have been forged or replayed.",
+        "Coincidence — multisigs are just fast these days.",
+        "You should ask an astrologer about it."
+      ]
+    },
+    {
+      "id": 8,
+      "text": "One DAO developer suddenly deletes all social media accounts. What do you think?",
+      "answers": [
+        "Possible insider — guilt or panic.",
+        "Just mental health break after chaos.",
+        "He moved to build on Layer 3."
+      ]
+    },
+    {
+      "id": 9,
+      "text": "You’re preparing your final investigation report. What do you include?",
+      "answers": [
+        "Transaction analysis, exploit timeline, and code review summary.",
+        "Funny memes to get more engagement.",
+        "Just a link to Etherscan and a shrug emoji."
+      ]
+    },
+    {
+      "id": 10,
+      "text": "Time to close the case. How do you end your investigation?",
+      "answers": [
+        "Deliver a full report to the DAO and push for a fix.",
+        "Publish everything onchain for transparency.",
+        "Disappear quietly — the chain remembers."
+      ]
+    }
+  ]
+}
