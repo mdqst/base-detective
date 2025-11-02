@@ -2,7 +2,12 @@ import { useEffect, useState, useMemo } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import data from "../data/questions_case1.json";
 import WalletConnectButton from "../components/WalletConnectButton";
-import { startCaseTx, completeCaseTx, getFarcasterProvider } from "../hooks/useContract";
+import {
+  startCaseTx,
+  completeCaseTx,
+  getFarcasterProvider,
+  getCaseStatus,
+} from "../hooks/useContract";
 
 type Question = {
   id: number;
@@ -38,17 +43,41 @@ export default function Home() {
   const [provider, setProvider] = useState<any | null>(null);
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [alreadyCompleted, setAlreadyCompleted] = useState<null | {
+    result: number;
+    timestamp: number;
+  }>(null);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
   const [wrongAnswer, setWrongAnswer] = useState<number | null>(null);
   const [correctAnswer, setCorrectAnswer] = useState<number | null>(null);
   const [seed, setSeed] = useState<number | null>(null);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     sdk.actions.ready();
-    getFarcasterProvider(sdk).then((prov) => {
-      if (prov) setProvider(prov);
-    });
+    (async () => {
+      const prov = await getFarcasterProvider(sdk);
+      if (prov) {
+        setProvider(prov);
+        try {
+          const accounts = await prov.request({ method: "eth_accounts" });
+          const address = accounts[0];
+          if (address) {
+            const status = await getCaseStatus(address, CASE.caseId);
+            if (status?.completed) {
+              setAlreadyCompleted({
+                result: status.result,
+                timestamp: status.timestamp,
+              });
+            }
+          }
+        } catch (err) {
+          console.error("⚠️ Status check failed:", err);
+        }
+      }
+      setChecking(false);
+    })();
   }, []);
 
   const questionOrder = useMemo(() => {
@@ -65,7 +94,7 @@ export default function Home() {
         return;
       }
 
-      await startCaseTx(provider, CASE.caseId, 0n); // 🚫 без оплаты
+      await startCaseTx(provider, CASE.caseId); // value = 0n по умолчанию
 
       const localSeed = Date.now() % 0xffffffff;
       setSeed(localSeed);
@@ -78,11 +107,9 @@ export default function Home() {
 
   function handleAnswer(answerIndex: number) {
     const isCorrect = answerIndex === 0;
-
     if (isCorrect) {
       setCorrectAnswer(answerIndex);
       setWrongAnswer(null);
-
       setTimeout(() => {
         setCorrectAnswer(null);
         setAnswers((prev) => [...prev, answerIndex]);
@@ -114,6 +141,50 @@ export default function Home() {
       console.error(err);
       alert("Failed to record result.");
     }
+  }
+
+  function formatResult(result: number) {
+    switch (result) {
+      case 1:
+        return "Excellent Detective";
+      case 2:
+        return "Good Investigator";
+      default:
+        return "Rookie Detective";
+    }
+  }
+
+  if (checking) {
+    return (
+      <main className="flex items-center justify-center min-h-screen text-white bg-background">
+        <div className="animate-pulse text-sm opacity-80">
+          🕵️ Loading case files...
+        </div>
+      </main>
+    );
+  }
+
+  if (alreadyCompleted) {
+    return (
+      <main className="flex flex-col items-center justify-center min-h-screen text-white bg-background px-4">
+        <div className="max-w-md w-full bg-surface border border-white/10 rounded-2xl p-6 text-center shadow-lg shadow-black/50 animate-fadeIn">
+          <h2 className="text-xl font-semibold mb-3">🟢 Case Already Solved</h2>
+          <p className="text-textSecondary text-sm mb-4">
+            You’ve already solved this case on{" "}
+            {new Date(alreadyCompleted.timestamp * 1000).toLocaleDateString()}.
+          </p>
+          <p className="text-base text-white mb-2">
+            Your Result:{" "}
+            <span className="text-accent font-medium">
+              {formatResult(alreadyCompleted.result)}
+            </span>
+          </p>
+          <p className="text-xs text-textSecondary">
+            Your result is permanently recorded on Base.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -185,7 +256,6 @@ export default function Home() {
               {currentQuestion.answers.map((ans, idx) => {
                 const isWrong = wrongAnswer === idx;
                 const isCorrect = correctAnswer === idx;
-
                 return (
                   <button
                     key={idx}
