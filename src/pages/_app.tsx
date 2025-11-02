@@ -1,12 +1,15 @@
 import "../styles/globals.css";
 import type { AppProps } from "next/app";
 import dynamic from "next/dynamic";
-import { WagmiConfig, http, createConfig } from "wagmi";
+import { WagmiConfig, createConfig, http } from "wagmi";
 import { base } from "wagmi/chains";
-import { getDefaultConfig } from "connectkit/build";
+import { getDefaultConfig } from "connectkit";
 
 const ConnectKitProvider = dynamic(
-  async () => (await import("connectkit/build")).ConnectKitProvider,
+  async () => {
+    const mod = await import("connectkit");
+    return mod.ConnectKitProvider;
+  },
   { ssr: false }
 );
 
