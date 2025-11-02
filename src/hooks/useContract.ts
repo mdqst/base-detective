@@ -12,13 +12,13 @@ export const contractAddress =
   "0xfbc5fbe823f76964de240433ad00651a76c672c8";
 
 /**
- * Получает Farcaster provider (новый API)
+ * Получает Farcaster provider (новый API Miniapps SDK)
  * Если miniapp запущен в Farcaster — вернёт встроенный кошелёк
- * Если нет — fallback к WalletConnect (через window.ethereum)
+ * Если нет — fallback к WalletConnect / MetaMask
  */
 export async function getFarcasterProvider(sdkInstance: typeof sdk) {
   try {
-    // ✅ Новый API: провайдер доступен напрямую
+    // ✅ Новый API: ethProvider доступен напрямую
     const provider = sdkInstance.wallet?.ethProvider;
 
     if (provider) {
@@ -26,9 +26,9 @@ export async function getFarcasterProvider(sdkInstance: typeof sdk) {
       return provider;
     }
 
-    // 🔄 fallback — если miniapp открыт вне Farcaster (например, в браузере)
+    // 🔄 fallback — если miniapp открыт в браузере или через WalletConnect
     if (typeof window !== "undefined" && (window as any).ethereum) {
-      console.log("🟡 Using browser or WalletConnect provider");
+      console.log("🟡 Using browser/WalletConnect provider");
       return (window as any).ethereum;
     }
 
@@ -110,8 +110,7 @@ export async function completeCaseTx(
 
 /**
  * Получает статус расследования для игрока (view-функция)
- * @param address адрес игрока
- * @param caseId ID кейса
+ * Использует mapping playerCases(address, caseId)
  */
 export async function getCaseStatus(address: string, caseId: number) {
   try {
@@ -122,17 +121,28 @@ export async function getCaseStatus(address: string, caseId: number) {
 
     console.log("🔍 getCaseStatus:", { address, caseId });
 
-    // ⚠️ ЗАМЕНИ имя функции ниже, если в контракте оно другое
-    // например: "playerCases" или "cases"
+    // ✅ правильная view-функция из ABI
     const data = await publicClient.readContract({
       address: contractAddress as `0x${string}`,
       abi: contractABI,
-      functionName: "getCase", // <-- если контракт возвращает структуру по игроку
+      functionName: "playerCases",
       args: [address, caseId],
     });
 
-    console.log("📄 Case status:", data);
-    return data;
+    // data = [seed, result, timestamp, completed]
+    const [seed, result, timestamp, completed] = data as [
+      bigint,
+      number,
+      bigint,
+      boolean
+    ];
+
+    return {
+      seed: Number(seed),
+      result,
+      timestamp: Number(timestamp),
+      completed,
+    };
   } catch (err) {
     console.error("❌ Error reading case status:", err);
     return null;
