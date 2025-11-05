@@ -1,7 +1,9 @@
-import { createWalletClient, custom, http } from "viem";
+import { createWalletClient, custom } from "viem";
 import { base } from "viem/chains";
 import contractABI from "../abi/SmartContractDetective.json";
 import { sdk } from "@farcaster/miniapp-sdk";
+import { keccak_256 } from "js-sha3";
+import { encodeAbiParameters } from "viem";
 
 export const contractAddress = "0xfbc5fbe823f76964de240433ad00651a76c672c8";
 
@@ -37,7 +39,7 @@ export async function completeCaseTx(provider: any, caseId: number, score: numbe
   const [account] = await walletClient.getAddresses();
 
   try {
-    // 🧠 multicall: вызываем startCase и completeCase в одной транзакции
+    // 🧠 multicall: вызывает startCase и completeCase в одной транзакции
     const txHash = await walletClient.writeContract({
       address: contractAddress as `0x${string}`,
       abi: contractABI.abi,
@@ -58,7 +60,7 @@ export async function completeCaseTx(provider: any, caseId: number, score: numbe
   } catch (err: any) {
     console.error("❌ completeCaseTx failed:", err);
 
-    // fallback: если multicall не поддерживается контрактом
+    // fallback: если multicall() отсутствует
     if (err.message?.includes("function selector was not recognized")) {
       console.warn("⚠️ Contract has no multicall(). Falling back to single call.");
       const fallbackTx = await walletClient.writeContract({
@@ -95,18 +97,15 @@ function encodeFunctionCall(name: string, args: any[]) {
  */
 function getSelector(name: string, types: string[]) {
   const signature = `${name}(${types.join(",")})`;
-  const hash = window.keccak256
-    ? window.keccak256(signature)
-    : require("js-sha3").keccak_256(signature);
+  const hash = keccak_256(signature);
   return "0x" + hash.substring(0, 8);
 }
 
 /**
- * Кодирует аргументы (просто через ethers-like fallback)
+ * Кодирует аргументы для вызова функции
  */
 function encodeArgs(types: string[], values: any[]) {
   try {
-    const { encodeAbiParameters } = require("viem");
     return encodeAbiParameters(
       types.map((t) => ({ type: t })),
       values
