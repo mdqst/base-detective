@@ -10,18 +10,15 @@
     "webhookUrl": "https://base-detective.vercel.app/api/webhook",
     "subtitle": "Connect and start",
     "description": "Players solve an onchain incident by answering 10 multiple-choice questions.",
-    "primaryCategory": "games",
+    "primaryCategory": "education",
     "tags": [
       "detective",
       "onchain",
       "game",
-      "base",
       "quest"
     ],
     "heroImageUrl": "https://base-detective.vercel.app/hero.png",
-    "buttonTitle": "Start quest",
-    "ogTitle": "Base Detective",
-    "ogDescription": "Players solve an onchain incident by answering 10 multiple-choice questions."
+    "ogImageUrl": "https://base-detective.vercel.app/hero.png"
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjI4OTg3NCwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGIyZjYyZDBEMWUzYmZEMEJCRUNDNURFYThGYWUzNDkzNDRDMTJDRDcifQ",
