@@ -1,0 +1,25 @@
+{
+  "frame": {
+    "name": "Base Detective",
+    "version": "1",
+    "iconUrl": "https://base-detective.vercel.app/icon.png",
+    "homeUrl": "https://base-detective.vercel.app",
+    "imageUrl": "https://base-detective.vercel.app/image.png",
+    "splashImageUrl": "https://base-detective.vercel.app/splash.png",
+    "splashBackgroundColor": "#000000",
+    "webhookUrl": "https://base-detective.vercel.app/api/webhook",
+    "subtitle": "Connect and start",
+    "description": "Players solve an onchain incident by answering 10 multiple-choice questions.",
+    "primaryCategory": "games",
+    "tags": [
+      "detective",
+      "onchain",
+      "game"
+    ]
+  },
+  "accountAssociation": {
+    "header": "eyJmaWQiOjI4OTg3NCwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGIyZjYyZDBEMWUzYmZEMEJCRUNDNURFYThGYWUzNDkzNDRDMTJDRDcifQ",
+    "payload": "eyJkb21haW4iOiJiYXNlLWRldGVjdGl2ZS52ZXJjZWwuYXBwIn0",
+    "signature": "IGZCSZ9NDxr1SFIA1FGP9dYH52N+0hZetmsfz6cp6HRYP42yb/mQiQo5lhQX8iQDo6FXIobpBSNlyC1YPzUzQBw="
+  }
+}
