@@ -7,7 +7,7 @@ import WalletConnectButton from "../components/WalletConnectButton";
 type Question = {
   id: number;
   text: string;
-  answers: string[]; // correct answer — first in JSON
+  answers: string[];
 };
 
 type CaseData = {
@@ -43,8 +43,6 @@ function shuffleWithSeed<T>(arr: T[], seed: number): T[] {
 
 export default function Home() {
   const [provider, setProvider] = useState<any | null>(null);
-  const [isInFarcaster, setIsInFarcaster] = useState(false);
-
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   const [step, setStep] = useState(0);
@@ -53,40 +51,24 @@ export default function Home() {
   const [correctAnswer, setCorrectAnswer] = useState<number | null>(null);
   const [txStatus, setTxStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
 
-  // ✅ Farcaster initialization and prompt to add miniapp
+  // ✅ Только инициализация SDK и провайдера, без добавления миниаппа
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      try {
-        sdk.actions.ready();
-        console.log("🟢 Farcaster Miniapp is ready.");
-        setIsInFarcaster(true);
-
-        // 🔔 Safely suggest adding the miniapp via deep link
-        try {
-          await sdk.actions.openUrl({
-            url: `farcaster://add-miniapp?url=${window.location.origin}`,
-          });
-          console.log("✨ Prompted user to add Miniapp to Farcaster.");
-        } catch (addErr) {
-          console.warn("ℹ️ Could not open add-miniapp URL (likely outside Farcaster):", addErr);
-        }
-      } catch (e) {
-        console.warn("⚠️ sdk.actions.ready() failed or not running inside Farcaster:", e);
-        setIsInFarcaster(false);
-      }
-    }, 400);
+    try {
+      sdk.actions.ready();
+      console.log("🟢 Farcaster Miniapp ready");
+    } catch (e) {
+      console.warn("⚠️ Farcaster SDK initialization failed:", e);
+    }
 
     (async () => {
       try {
         const prov = await getFarcasterProvider(sdk);
         if (prov) setProvider(prov);
-        else console.warn("⚠️ No Farcaster provider found.");
+        else console.warn("⚠️ No Farcaster wallet provider found");
       } catch (err) {
         console.error("❌ Provider error:", err);
       }
     })();
-
-    return () => clearTimeout(timer);
   }, []);
 
   function prepareQuestions() {
@@ -148,7 +130,7 @@ export default function Home() {
       if (!provider) {
         const prov = await getFarcasterProvider(sdk);
         if (!prov) {
-          alert("No wallet provider found. Please open in Farcaster or connect a wallet.");
+          alert("No wallet provider found. Please connect a wallet.");
           return;
         }
         setProvider(prov);
@@ -198,7 +180,7 @@ export default function Home() {
           <section className="flex flex-col gap-4">
             <div className="text-xs text-textSecondary bg-white/5 rounded-xl border border-white/10 p-3 leading-relaxed">
               <p className="mb-2">
-                • This is an on-chain investigation based on a real DAO-style exploit.
+                • This is an on-chain investigation based on a real DAO exploit.
               </p>
               <p className="mb-1">• Answer all 10 questions correctly to complete the case.</p>
               <p className="mb-1">
@@ -206,17 +188,6 @@ export default function Home() {
               </p>
               <p>• Your result is recorded on Base only after completion.</p>
             </div>
-
-            {!isInFarcaster && (
-              <button
-                onClick={() => {
-                  window.open("https://farcaster.xyz/~/add-miniapp?url=" + window.location.origin, "_blank");
-                }}
-                className="w-full rounded-xl bg-purple-600 text-white font-medium text-sm py-3 hover:bg-purple-700 transition"
-              >
-                📱 Add to Farcaster
-              </button>
-            )}
 
             <WalletConnectButton />
 
@@ -301,17 +272,15 @@ export default function Home() {
               onClick={handleStart}
               className="w-full mt-2 rounded-xl bg-white/5 text-xs text-textSecondary py-2 hover:bg-white/10 transition"
             >
-              Play Again (off-chain)
+              Play Again
             </button>
           </section>
         )}
       </div>
 
-      <footer className="text-[10px] text-textSecondary mt-6 opacity-60">
-        <div className="text-center leading-relaxed">
-          <div>Contract: 0xfbc5fbe823f76964de240433ad00651a76c672c8</div>
-          <div>Network: Base Mainnet (chainId 8453)</div>
-        </div>
+      <footer className="text-[10px] text-textSecondary mt-6 opacity-60 text-center leading-relaxed">
+        <div>Contract: 0xfbc5fbe823f76964de240433ad00651a76c672c8</div>
+        <div>Network: Base Mainnet (chainId 8453)</div>
       </footer>
     </main>
   );
