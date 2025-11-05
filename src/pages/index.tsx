@@ -1,317 +1,268 @@
-import { useEffect, useState, useMemo } from "react";
+"use client";
+
+import { useEffect, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import data from "../data/questions_case1.json";
-import WalletConnectButton from "../components/WalletConnectButton";
-import {
-  startCaseTx,
-  completeCaseTx,
-  getFarcasterProvider,
-  getCaseStatus,
-} from "../hooks/useContract";
+import { getFarcasterProvider, completeCaseTx } from "../hooks/useContract";
+import { motion, AnimatePresence } from "framer-motion";
 
-type Question = {
-  id: number;
-  text: string;
-  answers: string[];
-};
+const CASE = { caseId: 1 };
 
-type CaseData = {
-  caseId: number;
-  title: string;
-  intro: string;
-  questions: Question[];
-};
-
-const CASE: CaseData = data as CaseData;
-const TOTAL = CASE.questions.length;
-
-function shuffleWithSeed<T>(arr: T[], seed: number): T[] {
-  let x = seed % 0xffffffff;
-  if (x === 0) x = 0xdeadbeef;
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    x ^= x << 13;
-    x ^= x >>> 17;
-    x ^= x << 5;
-    const j = Math.abs(x) % (i + 1);
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
+const QUESTIONS = [
+  {
+    question: "Which function visibility allows only external calls?",
+    answers: ["public", "external", "internal", "private"],
+    correct: 1,
+  },
+  {
+    question: "What does 'view' mean in Solidity?",
+    answers: [
+      "The function changes state",
+      "The function reads state but doesn't modify it",
+      "The function is payable",
+      "The function is only internal",
+    ],
+    correct: 1,
+  },
+  {
+    question: "What is the purpose of require() in Solidity?",
+    answers: [
+      "To execute external calls",
+      "To check a condition and revert on failure",
+      "To store data permanently",
+      "To transfer Ether",
+    ],
+    correct: 1,
+  },
+  {
+    question: "What does msg.sender represent?",
+    answers: [
+      "The contract deployer",
+      "The function return value",
+      "The caller’s address",
+      "The Base chain ID",
+    ],
+    correct: 2,
+  },
+  {
+    question: "Which function modifier allows receiving ETH?",
+    answers: ["pure", "view", "payable", "external"],
+    correct: 2,
+  },
+  {
+    question: "Which keyword prevents a function from being overridden?",
+    answers: ["immutable", "constant", "final", "virtual"],
+    correct: 3,
+  },
+  {
+    question: "What is emitted to the blockchain logs?",
+    answers: ["events", "functions", "errors", "mappings"],
+    correct: 0,
+  },
+  {
+    question: "What does 'mapping' in Solidity represent?",
+    answers: [
+      "A loop structure",
+      "A key-value data store",
+      "An imported library",
+      "A struct definition",
+    ],
+    correct: 1,
+  },
+  {
+    question: "What happens when assert() fails?",
+    answers: [
+      "It returns false",
+      "It reverts and consumes all gas",
+      "It logs a warning",
+      "It emits an event",
+    ],
+    correct: 1,
+  },
+  {
+    question: "What is the default value of an uninitialized bool?",
+    answers: ["true", "false", "0", "undefined"],
+    correct: 1,
+  },
+];
 
 export default function Home() {
-  const [provider, setProvider] = useState<any | null>(null);
+  const [provider, setProvider] = useState<any>(null);
   const [started, setStarted] = useState(false);
-  const [finished, setFinished] = useState(false);
-  const [alreadyCompleted, setAlreadyCompleted] = useState<null | {
-    result: number;
-    timestamp: number;
-  }>(null);
-  const [step, setStep] = useState(0);
+  const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
-  const [wrongAnswer, setWrongAnswer] = useState<number | null>(null);
-  const [correctAnswer, setCorrectAnswer] = useState<number | null>(null);
-  const [seed, setSeed] = useState<number | null>(null);
-  const [checking, setChecking] = useState(true);
+  const [finished, setFinished] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [txStatus, setTxStatus] = useState<"none" | "pending" | "success" | "error">("none");
 
+  // подключаем Farcaster или MetaMask
   useEffect(() => {
-    sdk.actions.ready();
     (async () => {
-      const prov = await getFarcasterProvider(sdk);
-      if (prov) {
-        setProvider(prov);
-        try {
-          const accounts = await prov.request({ method: "eth_accounts" });
-          const address = accounts[0];
-          if (address) {
-            const status = await getCaseStatus(address, CASE.caseId);
-            if (status?.completed) {
-              setAlreadyCompleted({
-                result: status.result,
-                timestamp: status.timestamp,
-              });
-            }
-          }
-        } catch (err) {
-          console.error("⚠️ Status check failed:", err);
-        }
-      }
-      setChecking(false);
+      const p = await getFarcasterProvider(sdk);
+      setProvider(p);
     })();
   }, []);
 
-  const questionOrder = useMemo(() => {
-    if (!seed) return CASE.questions;
-    return shuffleWithSeed(CASE.questions, seed);
-  }, [seed]);
+  const startGame = () => {
+    setStarted(true);
+    setCurrent(0);
+    setAnswers([]);
+    setFinished(false);
+    setTxStatus("none");
+  };
 
-  const currentQuestion = questionOrder[step];
+  const selectAnswer = (index: number) => {
+    if (finished) return;
+    const newAnswers = [...answers];
+    newAnswers[current] = index;
+    setAnswers(newAnswers);
 
-  async function handleStart() {
-    try {
-      if (!provider) {
-        alert("Please connect wallet first (Farcaster or external wallet).");
-        return;
+    setTimeout(() => {
+      if (current + 1 < QUESTIONS.length) {
+        setCurrent(current + 1);
+      } else {
+        finishGame(newAnswers);
       }
+    }, 600);
+  };
 
-      await startCaseTx(provider, CASE.caseId); // value = 0n по умолчанию
+  const finishGame = async (answersArray: number[]) => {
+    setFinished(true);
+    const correct = answersArray.filter(
+      (a, i) => a === QUESTIONS[i].correct
+    ).length;
+    setCorrectCount(correct);
 
-      const localSeed = Date.now() % 0xffffffff;
-      setSeed(localSeed);
-      setStarted(true);
-    } catch (err: any) {
-      console.error(err);
-      alert("Failed to start case.");
+    if (!provider) {
+      setTxStatus("error");
+      return;
     }
-  }
 
-  function handleAnswer(answerIndex: number) {
-    const isCorrect = answerIndex === 0;
-    if (isCorrect) {
-      setCorrectAnswer(answerIndex);
-      setWrongAnswer(null);
-      setTimeout(() => {
-        setCorrectAnswer(null);
-        setAnswers((prev) => [...prev, answerIndex]);
-        if (step < TOTAL - 1) {
-          setStep(step + 1);
-        } else {
-          setFinished(true);
-        }
-      }, 700);
-    } else {
-      setWrongAnswer(answerIndex);
-      setTimeout(() => setWrongAnswer(null), 1000);
-    }
-  }
-
-  async function handleRecord() {
     try {
-      if (!provider) {
-        alert("Please connect wallet first.");
-        return;
-      }
-
-      const score = answers.filter((a) => a === 0).length;
-      const result = score >= 7 ? 1 : score >= 4 ? 2 : 3;
-
+      setSubmitting(true);
+      setTxStatus("pending");
+      const result = correct === QUESTIONS.length ? 1 : 0;
       await completeCaseTx(provider, CASE.caseId, result);
-      alert("✅ Result recorded on Base. You're officially on-chain.");
-    } catch (err: any) {
-      console.error(err);
-      alert("Failed to record result.");
+      setTxStatus("success");
+    } catch (err) {
+      console.error("❌ Failed to record result:", err);
+      setTxStatus("error");
+    } finally {
+      setSubmitting(false);
     }
-  }
+  };
 
-  function formatResult(result: number) {
-    switch (result) {
-      case 1:
-        return "Excellent Detective";
-      case 2:
-        return "Good Investigator";
-      default:
-        return "Rookie Detective";
-    }
-  }
-
-  if (checking) {
+  if (!started) {
     return (
-      <main className="flex items-center justify-center min-h-screen text-white bg-background">
-        <div className="animate-pulse text-sm opacity-80">
-          🕵️ Loading case files...
-        </div>
-      </main>
-    );
-  }
-
-  if (alreadyCompleted) {
-    return (
-      <main className="flex flex-col items-center justify-center min-h-screen text-white bg-background px-4">
-        <div className="max-w-md w-full bg-surface border border-white/10 rounded-2xl p-6 text-center shadow-lg shadow-black/50 animate-fadeIn">
-          <h2 className="text-xl font-semibold mb-3">🟢 Case Already Solved</h2>
-          <p className="text-textSecondary text-sm mb-4">
-            You’ve already solved this case on{" "}
-            {new Date(alreadyCompleted.timestamp * 1000).toLocaleDateString()}.
-          </p>
-          <p className="text-base text-white mb-2">
-            Your Result:{" "}
-            <span className="text-accent font-medium">
-              {formatResult(alreadyCompleted.result)}
-            </span>
-          </p>
-          <p className="text-xs text-textSecondary">
-            Your result is permanently recorded on Base.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <main className="flex flex-col items-center justify-start min-h-screen bg-background text-textPrimary px-4 py-8">
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.6s ease-out;
-        }
-      `}</style>
-
-      <div className="w-full max-w-md bg-surface rounded-2xl p-5 shadow-xl shadow-black/50 border border-white/10">
-        <header className="flex flex-col gap-2 mb-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-lg font-semibold text-white flex items-center gap-2">
-              🕵️ Base Detective
-            </h1>
-            <span className="text-[10px] text-textSecondary bg-white/5 border border-white/10 rounded-md px-2 py-1 leading-none">
-              Case #{CASE.caseId}
-            </span>
-          </div>
-          <p className="text-sm text-textSecondary leading-relaxed">{CASE.intro}</p>
-        </header>
-
-        {!started && !finished && (
-          <section className="flex flex-col gap-4 animate-fadeIn">
-            <div className="text-xs text-textSecondary bg-white/5 rounded-xl border border-white/10 p-3 leading-relaxed">
-              <p className="mb-2">
-                1. Connect your wallet (Farcaster in-app or external).
-              </p>
-              <p className="mb-2">
-                2. Start the investigation — answer all 10 questions correctly.
-              </p>
-              <p>3. Wrong answers blink red, correct ones flash green.</p>
-            </div>
-
-            <WalletConnectButton />
-
-            <button
-              onClick={handleStart}
-              className="w-full rounded-xl bg-accent text-white font-medium text-sm py-3 shadow-lg shadow-blue-500/20 hover:opacity-90 transition"
-            >
-              Start Investigation
-            </button>
-          </section>
-        )}
-
-        {started && !finished && currentQuestion && (
-          <section key={step} className="flex flex-col gap-4 animate-fadeIn">
-            <div>
-              <div className="text-[11px] text-textSecondary mb-2">
-                Question {step + 1} / {TOTAL}
-              </div>
-              <div className="text-white text-base font-medium leading-relaxed">
-                {currentQuestion.text}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              {currentQuestion.answers.map((ans, idx) => {
-                const isWrong = wrongAnswer === idx;
-                const isCorrect = correctAnswer === idx;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => handleAnswer(idx)}
-                    className={`w-full text-left rounded-xl border px-4 py-3 text-sm leading-relaxed transition-all duration-300
-                      ${
-                        isWrong
-                          ? "border-red-500/50 bg-red-500/10 text-red-400 animate-pulse"
-                          : isCorrect
-                          ? "border-green-500/50 bg-green-500/10 text-green-400 animate-pulse"
-                          : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
-                      }`}
-                  >
-                    {ans}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/10 mt-4">
-              <div
-                className="bg-accent h-full transition-all"
-                style={{ width: `${((step + 1) / TOTAL) * 100}%` }}
-              />
-            </div>
-          </section>
-        )}
-
-        {finished && (
-          <section className="flex flex-col gap-4 text-center animate-fadeIn">
-            <h2 className="text-white text-xl font-semibold">Investigation Complete</h2>
-            <p className="text-sm text-textSecondary leading-relaxed">
-              You solved all {TOTAL} questions! You can now record your final
-              result on Base. This becomes permanent, public proof of your investigation.
-            </p>
-
-            <button
-              onClick={handleRecord}
-              className="w-full rounded-xl bg-green-600 text-white font-medium text-sm py-3 shadow-lg shadow-green-500/20 hover:opacity-90 transition"
-            >
-              Record Result On-Chain
-            </button>
-
-            <p className="text-[11px] text-textSecondary">
-              Only your final result is stored — not individual answers.
-            </p>
-          </section>
-        )}
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950 text-white text-center">
+        <motion.h1
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-3xl font-bold mb-4"
+        >
+          🕵️‍♂️ Base Detective
+        </motion.h1>
+        <p className="text-gray-400 mb-6 max-w-md">
+          Solve 10 smart contract riddles. Only true detectives reach the end!
+        </p>
+        <button
+          onClick={startGame}
+          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-lg font-semibold"
+        >
+          Start Investigation
+        </button>
       </div>
+    );
+  }
 
-      <footer className="text-[10px] text-textSecondary mt-6 opacity-60">
-        <div className="text-center leading-relaxed">
-          <div>Contract: 0xfbc5fbe823f76964de240433ad00651a76c672c8</div>
-          <div>Network: Base Mainnet (chainId 8453)</div>
+  if (finished) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950 text-white text-center">
+        <h2 className="text-2xl font-bold mb-2">
+          {correctCount === QUESTIONS.length
+            ? "🟢 Perfect Investigation!"
+            : "🧩 Case Closed"}
+        </h2>
+        <p className="text-gray-400 mb-6">
+          You got {correctCount} / {QUESTIONS.length} correct.
+        </p>
+
+        <AnimatePresence mode="wait">
+          {txStatus === "pending" && (
+            <motion.div
+              key="pending"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-yellow-400 animate-pulse mb-4"
+            >
+              ⏳ Recording result on-chain...
+            </motion.div>
+          )}
+          {txStatus === "success" && (
+            <motion.div
+              key="success"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-green-400 mb-4"
+            >
+              ✅ Successfully recorded on Base!
+            </motion.div>
+          )}
+          {txStatus === "error" && (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-red-400 mb-4"
+            >
+              ❌ Failed to record result.
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <button
+          onClick={startGame}
+          disabled={submitting}
+          className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-lg font-semibold disabled:opacity-50"
+        >
+          {submitting ? "Please wait..." : "Try Again"}
+        </button>
+      </div>
+    );
+  }
+
+  const q = QUESTIONS[current];
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950 text-white p-6">
+      <div className="max-w-md w-full bg-gray-900 p-6 rounded-2xl shadow-lg">
+        <h2 className="text-xl font-semibold mb-4">
+          Question {current + 1} / {QUESTIONS.length}
+        </h2>
+        <p className="mb-6 text-gray-300">{q.question}</p>
+        <div className="space-y-3">
+          {q.answers.map((a, i) => {
+            const selected = answers[current] === i;
+            return (
+              <motion.button
+                key={i}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => selectAnswer(i)}
+                className={`w-full text-left px-4 py-2 rounded-lg border transition-colors
+                  ${
+                    selected
+                      ? "bg-blue-700 border-blue-500"
+                      : "bg-gray-800 border-gray-700 hover:bg-gray-700"
+                  }`}
+              >
+                {a}
+              </motion.button>
+            );
+          })}
         </div>
-      </footer>
-    </main>
+      </div>
+    </div>
   );
 }
