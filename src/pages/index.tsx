@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import data from "../data/questions_case1.json";
 import { getFarcasterProvider, completeCaseTx } from "../hooks/useContract";
-// если у тебя есть отдельная кнопка — можно оставить, иначе убери строку ниже
 import WalletConnectButton from "../components/WalletConnectButton";
 
 type Question = {
   id: number;
   text: string;
-  answers: string[];
+  answers: string[]; // в JSON правильный ответ ВСЕГДА первый
 };
 
 type CaseData = {
@@ -16,6 +15,13 @@ type CaseData = {
   title: string;
   intro: string;
   questions: Question[];
+};
+
+type PreparedQuestion = {
+  id: number;
+  text: string;
+  answers: string[];      // уже перемешанные ответы
+  correctIndex: number;   // индекс правильного ответа после перемешивания
 };
 
 const CASE: CaseData = data as CaseData;
@@ -42,36 +48,82 @@ export default function Home() {
   const [finished, setFinished] = useState(false);
 
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<number[]>([]); // храним индексы правильных ответов
+  const [questions, setQuestions] = useState<PreparedQuestion[] | null>(null);
+
   const [wrongAnswer, setWrongAnswer] = useState<number | null>(null);
   const [correctAnswer, setCorrectAnswer] = useState<number | null>(null);
 
-  const [seed, setSeed] = useState<number | null>(null);
   const [txStatus, setTxStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
 
+  // ✅ корректный ready + провайдер
   useEffect(() => {
-    sdk.actions.ready();
+    const timer = setTimeout(() => {
+      try {
+        sdk.actions.ready();
+        console.log("🟢 Farcaster Miniapp is ready.");
+      } catch (e) {
+        console.warn("⚠️ sdk.actions.ready() failed:", e);
+      }
+    }, 400);
+
     (async () => {
-      const prov = await getFarcasterProvider(sdk);
-      if (prov) setProvider(prov);
+      try {
+        const prov = await getFarcasterProvider(sdk);
+        if (prov) setProvider(prov);
+        else console.warn("⚠️ No Farcaster provider found.");
+      } catch (err) {
+        console.error("❌ Provider error:", err);
+      }
     })();
+
+    return () => clearTimeout(timer);
   }, []);
 
-  const questionOrder = useMemo(() => {
-    if (!seed) return CASE.questions;
-    return shuffleWithSeed(CASE.questions, seed);
-  }, [seed]);
+  const currentQuestion = questions ? questions[step] : null;
 
-  const currentQuestion = questionOrder[step];
+  function prepareQuestions() {
+    // делаем общий сид
+    const seed = Date.now() % 0xffffffff;
+
+    // 1) перемешиваем порядок ВОПРОСОВ
+    const shuffledQuestions = shuffleWithSeed(CASE.questions, seed);
+
+    // 2) для каждого вопроса перемешиваем порядок ОТВЕТОВ
+    const prepared: PreparedQuestion[] = shuffledQuestions.map((q, idx) => {
+      // детерминированный сид для ответов этого вопроса
+      let x = (seed + (idx + 1) * 9973) >>> 0;
+      if (x === 0) x = 0xabcdef;
+
+      const indices = q.answers.map((_, i) => i); // [0,1,2,...]
+      for (let i = indices.length - 1; i > 0; i--) {
+        x ^= x << 13;
+        x ^= x >>> 17;
+        x ^= x << 5;
+        const j = Math.abs(x) % (i + 1);
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+
+      const shuffledAnswers = indices.map((origIdx) => q.answers[origIdx]);
+      // в исходных данных правильный — индекс 0, ищем, куда он переехал
+      const correctIndex = indices.indexOf(0);
+
+      return {
+        id: q.id,
+        text: q.text,
+        answers: shuffledAnswers,
+        correctIndex,
+      };
+    });
+
+    return prepared;
+  }
 
   function handleStart() {
-    // никакого вызова контракта здесь
-    const localSeed = Date.now() % 0xffffffff;
-    setSeed(localSeed);
+    const prepared = prepareQuestions();
+    setQuestions(prepared);
     setStarted(true);
     setFinished(false);
     setStep(0);
-    setAnswers([]);
     setWrongAnswer(null);
     setCorrectAnswer(null);
     setTxStatus("idle");
@@ -80,7 +132,7 @@ export default function Home() {
   function handleAnswer(idx: number) {
     if (!currentQuestion || finished) return;
 
-    const isCorrect = idx === 0; // по нашей схеме правильный ответ всегда первый в массиве
+    const isCorrect = idx === currentQuestion.correctIndex;
 
     if (isCorrect) {
       setCorrectAnswer(idx);
@@ -88,16 +140,14 @@ export default function Home() {
 
       setTimeout(() => {
         setCorrectAnswer(null);
-        setAnswers((prev) => [...prev, idx]);
-
         if (step < TOTAL - 1) {
           setStep(step + 1);
         } else {
           setFinished(true);
         }
-      }, 450);
+      }, 400);
     } else {
-      // подсветить красным, но не переходить к следующему вопросу
+      // просто подсвечиваем красным, остаёмся на этом вопросе
       setWrongAnswer(idx);
     }
   }
@@ -105,7 +155,6 @@ export default function Home() {
   async function handleRecord() {
     try {
       if (!provider) {
-        // ещё раз попробуем вытащить провайдер
         const prov = await getFarcasterProvider(sdk);
         if (!prov) {
           alert("No wallet provider found. Please open in Farcaster or connect a wallet.");
@@ -116,10 +165,8 @@ export default function Home() {
 
       setTxStatus("pending");
 
-      const correctCount = TOTAL; // раз мы двигаемся дальше только при правильном ответе, значит все 10 правильные
-      // но можно сделать гибкую оценку, на будущее:
-      // const correctCount = answers.length;
-      const result = correctCount >= 7 ? 1 : correctCount >= 4 ? 2 : 3;
+      // так как мы двигаемся дальше только при правильных ответах — все 10 верные
+      const result = 1;
 
       await completeCaseTx(provider, CASE.caseId, result);
 
@@ -132,7 +179,6 @@ export default function Home() {
 
   return (
     <main className="flex flex-col items-center justify-start min-h-screen bg-background text-textPrimary px-4 py-8">
-      {/* лёгкая анимация появления */}
       <style jsx global>{`
         @keyframes fadeIn {
           from {
@@ -159,7 +205,6 @@ export default function Home() {
               Case #{CASE.caseId}
             </span>
           </div>
-          {/* История кейса — та самая про хак DAO и т.п. */}
           <p className="text-sm text-textSecondary leading-relaxed">{CASE.intro}</p>
         </header>
 
@@ -167,20 +212,19 @@ export default function Home() {
           <section className="flex flex-col gap-4">
             <div className="text-xs text-textSecondary bg-white/5 rounded-xl border border-white/10 p-3 leading-relaxed">
               <p className="mb-2">
-                • This is an on-chain investigation training based on a real DeFi exploit.
+                • This is an on-chain investigation based on a real DAO-style exploit.
               </p>
               <p className="mb-1">
-                • You <span className="text-textPrimary font-medium">must answer all 10 questions correctly</span>.
+                • You must answer all 10 questions correctly to close the case.
               </p>
               <p className="mb-1">
-                • Wrong answers turn <span className="text-red-400 font-medium">red</span>, you can try again.
+                • Wrong answers turn <span className="text-red-400 font-medium">red</span>, you can retry as many times as needed.
               </p>
               <p>
-                • Only when you finish the whole case, your final result can be written to Base.
+                • Only after completion, your result can be recorded on Base.
               </p>
             </div>
 
-            {/* Если у тебя есть рабочая кнопка кошелька — оставляем */}
             <WalletConnectButton />
 
             <button
@@ -240,8 +284,7 @@ export default function Home() {
           <section className="flex flex-col gap-4 text-center animate-fadeIn">
             <h2 className="text-white text-xl font-semibold">Investigation Complete</h2>
             <p className="text-sm text-textSecondary leading-relaxed">
-              You solved all {TOTAL} questions. Now you can optionally record your
-              final detective rank on Base. This is a permanent proof that you cracked this case.
+              You cracked all {TOTAL} questions. You can now optionally record your detective proof on Base.
             </p>
 
             <button
