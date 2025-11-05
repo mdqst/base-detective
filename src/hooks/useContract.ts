@@ -23,33 +23,7 @@ export async function getFarcasterProvider(sdkInstance: typeof sdk) {
 }
 
 /**
- * Запускает кейс вручную (если нужно)
- */
-export async function startCaseTx(provider: any, caseId: number) {
-  if (!provider) throw new Error("No provider connected");
-
-  const walletClient = createWalletClient({
-    chain: base,
-    transport: custom(provider),
-  });
-
-  const [account] = await walletClient.getAddresses();
-
-  const hash = await walletClient.writeContract({
-    address: contractAddress as `0x${string}`,
-    abi: contractABI.abi,
-    functionName: "startCase",
-    args: [caseId],
-    account,
-    value: BigInt(0), // ✅ совместимо с любым TS target
-  });
-
-  console.log("📦 startCase TX:", hash);
-  return hash;
-}
-
-/**
- * Записывает результат расследования (автоматически вызывает startCase, если нужно)
+ * Только запись результата расследования (одна транзакция)
  */
 export async function completeCaseTx(provider: any, caseId: number, score: number) {
   if (!provider) throw new Error("No provider connected");
@@ -67,22 +41,6 @@ export async function completeCaseTx(provider: any, caseId: number, score: numbe
   const [account] = await walletClient.getAddresses();
 
   try {
-    // 🟡 1. Попробуем вызвать startCase, если он ещё не вызывался
-    try {
-      const startTx = await walletClient.writeContract({
-        address: contractAddress as `0x${string}`,
-        abi: contractABI.abi,
-        functionName: "startCase",
-        args: [caseId],
-        account,
-        value: BigInt(0), // ✅ безопасно и совместимо
-      });
-      console.log("🟢 startCase called automatically:", startTx);
-    } catch (err) {
-      console.log("ℹ️ startCase likely already done or not required:", err);
-    }
-
-    // 🟢 2. Записываем результат расследования
     const completeTx = await walletClient.writeContract({
       address: contractAddress as `0x${string}`,
       abi: contractABI.abi,
@@ -93,8 +51,14 @@ export async function completeCaseTx(provider: any, caseId: number, score: numbe
 
     console.log("✅ completeCase TX:", completeTx);
     return completeTx;
-  } catch (err) {
+  } catch (err: any) {
     console.error("❌ completeCaseTx failed:", err);
+
+    // 🔍 Контракт вернул #1002 — пользователь не стартовал кейс
+    if (err.message?.includes("#1002")) {
+      alert("Please start the case first on-chain before completing it.");
+    }
+
     throw err;
   }
 }
