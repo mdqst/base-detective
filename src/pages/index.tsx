@@ -7,7 +7,7 @@ import WalletConnectButton from "../components/WalletConnectButton";
 type Question = {
   id: number;
   text: string;
-  answers: string[]; // в JSON правильный ответ ВСЕГДА первый
+  answers: string[]; // в JSON правильный ответ — первый
 };
 
 type CaseData = {
@@ -20,8 +20,8 @@ type CaseData = {
 type PreparedQuestion = {
   id: number;
   text: string;
-  answers: string[];      // уже перемешанные ответы
-  correctIndex: number;   // индекс правильного ответа после перемешивания
+  answers: string[];
+  correctIndex: number;
 };
 
 const CASE: CaseData = data as CaseData;
@@ -43,26 +43,40 @@ function shuffleWithSeed<T>(arr: T[], seed: number): T[] {
 
 export default function Home() {
   const [provider, setProvider] = useState<any | null>(null);
+  const [isInFarcaster, setIsInFarcaster] = useState(false);
+  const [added, setAdded] = useState<boolean | null>(null);
 
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
-
   const [step, setStep] = useState(0);
   const [questions, setQuestions] = useState<PreparedQuestion[] | null>(null);
-
   const [wrongAnswer, setWrongAnswer] = useState<number | null>(null);
   const [correctAnswer, setCorrectAnswer] = useState<number | null>(null);
-
   const [txStatus, setTxStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
 
-  // ✅ корректный ready + провайдер
+  // ✅ корректная инициализация Farcaster Miniapp SDK
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       try {
         sdk.actions.ready();
         console.log("🟢 Farcaster Miniapp is ready.");
+
+        setIsInFarcaster(true);
+
+        // Проверяем, добавлено ли уже миниприложение
+        try {
+          const alreadyAdded = await sdk.actions.isAddedToLauncher();
+          setAdded(alreadyAdded);
+          if (!alreadyAdded) {
+            await sdk.actions.addToLauncher();
+            console.log("✨ Prompted user to add Miniapp to Warpcast.");
+          }
+        } catch (addErr) {
+          console.warn("ℹ️ Could not show add prompt (likely not in Farcaster):", addErr);
+        }
       } catch (e) {
-        console.warn("⚠️ sdk.actions.ready() failed:", e);
+        console.warn("⚠️ sdk.actions.ready() failed or running outside Farcaster:", e);
+        setIsInFarcaster(false);
       }
     }, 400);
 
@@ -79,22 +93,15 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, []);
 
-  const currentQuestion = questions ? questions[step] : null;
-
   function prepareQuestions() {
-    // делаем общий сид
     const seed = Date.now() % 0xffffffff;
-
-    // 1) перемешиваем порядок ВОПРОСОВ
     const shuffledQuestions = shuffleWithSeed(CASE.questions, seed);
 
-    // 2) для каждого вопроса перемешиваем порядок ОТВЕТОВ
     const prepared: PreparedQuestion[] = shuffledQuestions.map((q, idx) => {
-      // детерминированный сид для ответов этого вопроса
       let x = (seed + (idx + 1) * 9973) >>> 0;
       if (x === 0) x = 0xabcdef;
 
-      const indices = q.answers.map((_, i) => i); // [0,1,2,...]
+      const indices = q.answers.map((_, i) => i);
       for (let i = indices.length - 1; i > 0; i--) {
         x ^= x << 13;
         x ^= x >>> 17;
@@ -104,15 +111,8 @@ export default function Home() {
       }
 
       const shuffledAnswers = indices.map((origIdx) => q.answers[origIdx]);
-      // в исходных данных правильный — индекс 0, ищем, куда он переехал
       const correctIndex = indices.indexOf(0);
-
-      return {
-        id: q.id,
-        text: q.text,
-        answers: shuffledAnswers,
-        correctIndex,
-      };
+      return { id: q.id, text: q.text, answers: shuffledAnswers, correctIndex };
     });
 
     return prepared;
@@ -130,24 +130,19 @@ export default function Home() {
   }
 
   function handleAnswer(idx: number) {
-    if (!currentQuestion || finished) return;
-
+    if (!questions || !questions[step] || finished) return;
+    const currentQuestion = questions[step];
     const isCorrect = idx === currentQuestion.correctIndex;
 
     if (isCorrect) {
       setCorrectAnswer(idx);
       setWrongAnswer(null);
-
       setTimeout(() => {
         setCorrectAnswer(null);
-        if (step < TOTAL - 1) {
-          setStep(step + 1);
-        } else {
-          setFinished(true);
-        }
+        if (step < TOTAL - 1) setStep(step + 1);
+        else setFinished(true);
       }, 400);
     } else {
-      // просто подсвечиваем красным, остаёмся на этом вопросе
       setWrongAnswer(idx);
     }
   }
@@ -164,12 +159,7 @@ export default function Home() {
       }
 
       setTxStatus("pending");
-
-      // так как мы двигаемся дальше только при правильных ответах — все 10 верные
-      const result = 1;
-
-      await completeCaseTx(provider, CASE.caseId, result);
-
+      await completeCaseTx(provider, CASE.caseId, 1);
       setTxStatus("success");
     } catch (err) {
       console.error("Failed to record result:", err);
@@ -214,16 +204,23 @@ export default function Home() {
               <p className="mb-2">
                 • This is an on-chain investigation based on a real DAO-style exploit.
               </p>
+              <p className="mb-1">• Answer all 10 questions correctly to complete the case.</p>
               <p className="mb-1">
-                • You must answer all 10 questions correctly to close the case.
+                • Wrong answers turn <span className="text-red-400 font-medium">red</span>, but you can retry.
               </p>
-              <p className="mb-1">
-                • Wrong answers turn <span className="text-red-400 font-medium">red</span>, you can retry as many times as needed.
-              </p>
-              <p>
-                • Only after completion, your result can be recorded on Base.
-              </p>
+              <p>• Your progress is recorded on Base only after completion.</p>
             </div>
+
+            {!isInFarcaster && (
+              <button
+                onClick={() => {
+                  window.open("https://warpcast.com/~/add-miniapp?url=" + window.location.origin, "_blank");
+                }}
+                className="w-full rounded-xl bg-purple-600 text-white font-medium text-sm py-3 hover:bg-purple-700 transition"
+              >
+                📱 Add to Warpcast
+              </button>
+            )}
 
             <WalletConnectButton />
 
@@ -236,22 +233,21 @@ export default function Home() {
           </section>
         )}
 
-        {started && !finished && currentQuestion && (
+        {started && !finished && questions && (
           <section className="flex flex-col gap-4 animate-fadeIn">
             <div>
               <div className="text-[11px] text-textSecondary mb-2">
                 Question {step + 1} / {TOTAL}
               </div>
               <div className="text-white text-base font-medium leading-relaxed">
-                {currentQuestion.text}
+                {questions[step].text}
               </div>
             </div>
 
             <div className="flex flex-col gap-3">
-              {currentQuestion.answers.map((ans, idx) => {
+              {questions[step].answers.map((ans, idx) => {
                 const isWrong = wrongAnswer === idx;
                 const isCorrect = correctAnswer === idx;
-
                 return (
                   <button
                     key={idx}
@@ -284,7 +280,7 @@ export default function Home() {
           <section className="flex flex-col gap-4 text-center animate-fadeIn">
             <h2 className="text-white text-xl font-semibold">Investigation Complete</h2>
             <p className="text-sm text-textSecondary leading-relaxed">
-              You cracked all {TOTAL} questions. You can now optionally record your detective proof on Base.
+              You cracked all {TOTAL} questions. Record your detective proof on Base.
             </p>
 
             <button
@@ -301,7 +297,7 @@ export default function Home() {
             )}
             {txStatus === "error" && (
               <p className="text-[11px] text-red-400">
-                ❌ Failed to record result. You can try again later.
+                ❌ Failed to record result. Try again later.
               </p>
             )}
 
