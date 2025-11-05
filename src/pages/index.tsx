@@ -44,7 +44,6 @@ function shuffleWithSeed<T>(arr: T[], seed: number): T[] {
 export default function Home() {
   const [provider, setProvider] = useState<any | null>(null);
   const [isInFarcaster, setIsInFarcaster] = useState(false);
-  const [added, setAdded] = useState<boolean | null>(null);
 
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
@@ -54,32 +53,28 @@ export default function Home() {
   const [correctAnswer, setCorrectAnswer] = useState<number | null>(null);
   const [txStatus, setTxStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
 
-  // ✅ корректная инициализация Farcaster Miniapp SDK
+  // ✅ Инициализация Farcaster SDK и предложение добавить миниапп
   useEffect(() => {
     const timer = setTimeout(async () => {
       try {
         sdk.actions.ready();
         console.log("🟢 Farcaster Miniapp is ready.");
-
         setIsInFarcaster(true);
 
-        // Проверяем, добавлено ли уже миниприложение
+        // 🔔 Предлагаем пользователю добавить миниапп в Farcaster Launcher
         try {
-          const alreadyAdded = await sdk.actions.isAddedToLauncher();
-          setAdded(alreadyAdded);
-          if (!alreadyAdded) {
-            await sdk.actions.addToLauncher();
-            console.log("✨ Prompted user to add Miniapp to Warpcast.");
-          }
+          await sdk.actions.addToLauncher();
+          console.log("✨ Prompted user to add Miniapp to Farcaster.");
         } catch (addErr) {
-          console.warn("ℹ️ Could not show add prompt (likely not in Farcaster):", addErr);
+          console.warn("ℹ️ Could not show add prompt (likely outside Farcaster):", addErr);
         }
       } catch (e) {
-        console.warn("⚠️ sdk.actions.ready() failed or running outside Farcaster:", e);
+        console.warn("⚠️ sdk.actions.ready() failed or not in Farcaster:", e);
         setIsInFarcaster(false);
       }
     }, 400);
 
+    // подключаем провайдер
     (async () => {
       try {
         const prov = await getFarcasterProvider(sdk);
@@ -208,17 +203,17 @@ export default function Home() {
               <p className="mb-1">
                 • Wrong answers turn <span className="text-red-400 font-medium">red</span>, but you can retry.
               </p>
-              <p>• Your progress is recorded on Base only after completion.</p>
+              <p>• Your result is recorded on Base only after completion.</p>
             </div>
 
             {!isInFarcaster && (
               <button
                 onClick={() => {
-                  window.open("https://warpcast.com/~/add-miniapp?url=" + window.location.origin, "_blank");
+                  window.open("https://farcaster.xyz/~/add-miniapp?url=" + window.location.origin, "_blank");
                 }}
                 className="w-full rounded-xl bg-purple-600 text-white font-medium text-sm py-3 hover:bg-purple-700 transition"
               >
-                📱 Add to Warpcast
+                📱 Add to Farcaster
               </button>
             )}
 
