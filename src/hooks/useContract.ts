@@ -1,9 +1,7 @@
-import { createWalletClient, custom } from "viem";
+import { createWalletClient, custom, encodeAbiParameters, keccak256, toHex } from "viem";
 import { base } from "viem/chains";
 import contractABI from "../abi/SmartContractDetective.json";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { keccak_256 } from "js-sha3";
-import { encodeAbiParameters } from "viem";
 
 export const contractAddress = "0xfbc5fbe823f76964de240433ad00651a76c672c8";
 
@@ -93,12 +91,12 @@ function encodeFunctionCall(name: string, args: any[]) {
 }
 
 /**
- * Получает 4-байтный selector из имени и типов
+ * Получает 4-байтный selector из имени и типов (через viem)
  */
 function getSelector(name: string, types: string[]) {
   const signature = `${name}(${types.join(",")})`;
-  const hash = keccak_256(signature);
-  return "0x" + hash.substring(0, 8);
+  const hash = keccak256(toHex(signature));
+  return "0x" + hash.substring(2, 10);
 }
 
 /**
