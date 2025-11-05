@@ -14,8 +14,14 @@
     "tags": [
       "detective",
       "onchain",
-      "game"
-    ]
+      "game",
+      "base",
+      "quest"
+    ],
+    "heroImageUrl": "https://base-detective.vercel.app/hero.png",
+    "buttonTitle": "Start quest",
+    "ogTitle": "Base Detective",
+    "ogDescription": "Players solve an onchain incident by answering 10 multiple-choice questions."
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjI4OTg3NCwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGIyZjYyZDBEMWUzYmZEMEJCRUNDNURFYThGYWUzNDkzNDRDMTJDRDcifQ",
