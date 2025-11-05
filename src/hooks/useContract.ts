@@ -1,58 +1,31 @@
-import {
-  createWalletClient,
-  custom,
-  createPublicClient,
-  http,
-} from "viem";
+import { createWalletClient, custom, createPublicClient, http } from "viem";
 import { base } from "viem/chains";
-import contractFull from "../abi/SmartContractDetective.json";
+import contractABI from "../abi/SmartContractDetective.json";
 import { sdk } from "@farcaster/miniapp-sdk";
 
-// ✅ Вытаскиваем ABI из Remix JSON (если это compile output)
-const contractABI = (contractFull as any).abi || contractFull;
-
-export const contractAddress =
-  "0xfbc5fbe823f76964de240433ad00651a76c672c8";
+export const contractAddress = "0xfbc5fbe823f76964de240433ad00651a76c672c8";
 
 /**
- * Получает Farcaster provider (новый API Miniapps SDK)
- * Если miniapp запущен в Farcaster — вернёт встроенный кошелёк
- * Если нет — fallback к WalletConnect / MetaMask
+ * Возвращает Farcaster-провайдер, если он доступен
  */
 export async function getFarcasterProvider(sdkInstance: typeof sdk) {
   try {
-    // ✅ Новый API: ethProvider доступен напрямую
-    const provider = sdkInstance.wallet?.ethProvider;
-
-    if (provider) {
-      console.log("🟢 Farcaster provider detected");
-      return provider;
+    if (sdkInstance?.wallet?.ethProvider) {
+      return sdkInstance.wallet.ethProvider;
+    } else {
+      console.warn("⚠️ Farcaster provider not found via SDK");
+      return null;
     }
-
-    // 🔄 fallback — если miniapp открыт в браузере или через WalletConnect
-    if (typeof window !== "undefined" && (window as any).ethereum) {
-      console.log("🟡 Using browser/WalletConnect provider");
-      return (window as any).ethereum;
-    }
-
-    throw new Error("No provider found (Farcaster or WalletConnect).");
   } catch (err) {
-    console.error("❌ Failed to get provider:", err);
+    console.error("❌ getFarcasterProvider failed:", err);
     return null;
   }
 }
 
 /**
- * Старт расследования (startCase)
- * @param provider EIP-1193 provider
- * @param caseId ID кейса
- * @param value Сумма в wei (по умолчанию BigInt(0) — без оплаты)
+ * Запускает кейс вручную (если нужно)
  */
-export async function startCaseTx(
-  provider: any,
-  caseId: number,
-  value: bigint = BigInt(0)
-) {
+export async function startCaseTx(provider: any, caseId: number) {
   if (!provider) throw new Error("No provider connected");
 
   const walletClient = createWalletClient({
@@ -62,33 +35,29 @@ export async function startCaseTx(
 
   const [account] = await walletClient.getAddresses();
 
-  console.log("🔹 startCase:", { caseId, value, account });
-
-  const txHash = await walletClient.writeContract({
+  const hash = await walletClient.writeContract({
     address: contractAddress as `0x${string}`,
-    abi: contractABI,
+    abi: contractABI.abi,
     functionName: "startCase",
     args: [caseId],
     account,
-    value, // 🚫 без оплаты
+    value: 0n, // без оплаты
   });
 
-  console.log("✅ startCase tx:", txHash);
-  return txHash;
+  console.log("📦 startCase TX:", hash);
+  return hash;
 }
 
 /**
- * Завершение расследования (completeCase)
- * @param provider EIP-1193 provider
- * @param caseId ID кейса
- * @param result Результат (1, 2, 3)
+ * Записывает результат расследования (автоматически вызывает startCase, если нужно)
  */
-export async function completeCaseTx(
-  provider: any,
-  caseId: number,
-  result: number
-) {
+export async function completeCaseTx(provider: any, caseId: number, score: number) {
   if (!provider) throw new Error("No provider connected");
+
+  const publicClient = createPublicClient({
+    chain: base,
+    transport: http(),
+  });
 
   const walletClient = createWalletClient({
     chain: base,
@@ -97,57 +66,35 @@ export async function completeCaseTx(
 
   const [account] = await walletClient.getAddresses();
 
-  console.log("🔹 completeCase:", { caseId, result, account });
-
-  const txHash = await walletClient.writeContract({
-    address: contractAddress as `0x${string}`,
-    abi: contractABI,
-    functionName: "completeCase",
-    args: [caseId, result],
-    account,
-  });
-
-  console.log("✅ completeCase tx:", txHash);
-  return txHash;
-}
-
-/**
- * Получает статус расследования для игрока (view-функция)
- * Использует mapping playerCases(address, caseId)
- */
-export async function getCaseStatus(address: string, caseId: number) {
   try {
-    const publicClient = createPublicClient({
-      chain: base,
-      transport: http("https://mainnet.base.org"),
-    });
+    // 🟡 1. Попробуем вызвать startCase, если он ещё не вызывался
+    try {
+      const startTx = await walletClient.writeContract({
+        address: contractAddress as `0x${string}`,
+        abi: contractABI.abi,
+        functionName: "startCase",
+        args: [caseId],
+        account,
+        value: 0n,
+      });
+      console.log("🟢 startCase called automatically:", startTx);
+    } catch (err) {
+      console.log("ℹ️ startCase likely already done:", err);
+    }
 
-    console.log("🔍 getCaseStatus:", { address, caseId });
-
-    // ✅ правильная view-функция из ABI
-    const data = await publicClient.readContract({
+    // 🟢 2. Записываем результат расследования
+    const completeTx = await walletClient.writeContract({
       address: contractAddress as `0x${string}`,
-      abi: contractABI,
-      functionName: "playerCases",
-      args: [address, caseId],
+      abi: contractABI.abi,
+      functionName: "completeCase",
+      args: [caseId, score],
+      account,
     });
 
-    // data = [seed, result, timestamp, completed]
-    const [seed, result, timestamp, completed] = data as [
-      bigint,
-      number,
-      bigint,
-      boolean
-    ];
-
-    return {
-      seed: Number(seed),
-      result,
-      timestamp: Number(timestamp),
-      completed,
-    };
+    console.log("✅ completeCase TX:", completeTx);
+    return completeTx;
   } catch (err) {
-    console.error("❌ Error reading case status:", err);
-    return null;
+    console.error("❌ completeCaseTx failed:", err);
+    throw err;
   }
 }
