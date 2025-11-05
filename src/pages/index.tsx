@@ -7,7 +7,7 @@ import WalletConnectButton from "../components/WalletConnectButton";
 type Question = {
   id: number;
   text: string;
-  answers: string[]; // в JSON правильный ответ — первый
+  answers: string[]; // correct answer — first in JSON
 };
 
 type CaseData = {
@@ -53,7 +53,7 @@ export default function Home() {
   const [correctAnswer, setCorrectAnswer] = useState<number | null>(null);
   const [txStatus, setTxStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
 
-  // ✅ Инициализация Farcaster SDK и предложение добавить миниапп
+  // ✅ Farcaster initialization and prompt to add miniapp
   useEffect(() => {
     const timer = setTimeout(async () => {
       try {
@@ -61,20 +61,21 @@ export default function Home() {
         console.log("🟢 Farcaster Miniapp is ready.");
         setIsInFarcaster(true);
 
-        // 🔔 Предлагаем пользователю добавить миниапп в Farcaster Launcher
+        // 🔔 Safely suggest adding the miniapp via deep link
         try {
-          await sdk.actions.addToLauncher();
+          await sdk.actions.openUrl({
+            url: `farcaster://add-miniapp?url=${window.location.origin}`,
+          });
           console.log("✨ Prompted user to add Miniapp to Farcaster.");
         } catch (addErr) {
-          console.warn("ℹ️ Could not show add prompt (likely outside Farcaster):", addErr);
+          console.warn("ℹ️ Could not open add-miniapp URL (likely outside Farcaster):", addErr);
         }
       } catch (e) {
-        console.warn("⚠️ sdk.actions.ready() failed or not in Farcaster:", e);
+        console.warn("⚠️ sdk.actions.ready() failed or not running inside Farcaster:", e);
         setIsInFarcaster(false);
       }
     }, 400);
 
-    // подключаем провайдер
     (async () => {
       try {
         const prov = await getFarcasterProvider(sdk);
