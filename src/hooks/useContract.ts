@@ -41,7 +41,7 @@ export async function startCaseTx(provider: any, caseId: number) {
     functionName: "startCase",
     args: [caseId],
     account,
-    value: 0n, // без оплаты
+    value: BigInt(0), // ✅ совместимо с любым TS target
   });
 
   console.log("📦 startCase TX:", hash);
@@ -75,11 +75,11 @@ export async function completeCaseTx(provider: any, caseId: number, score: numbe
         functionName: "startCase",
         args: [caseId],
         account,
-        value: 0n,
+        value: BigInt(0), // ✅ безопасно и совместимо
       });
       console.log("🟢 startCase called automatically:", startTx);
     } catch (err) {
-      console.log("ℹ️ startCase likely already done:", err);
+      console.log("ℹ️ startCase likely already done or not required:", err);
     }
 
     // 🟢 2. Записываем результат расследования
