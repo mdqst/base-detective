@@ -93,7 +93,9 @@ export default function Home() {
   const [finished, setFinished] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [txStatus, setTxStatus] = useState<"none" | "pending" | "success" | "error">("none");
+  const [txStatus, setTxStatus] = useState<
+    "none" | "pending" | "success" | "error"
+  >("none");
 
   // подключаем Farcaster или MetaMask
   useEffect(() => {
@@ -187,7 +189,7 @@ export default function Home() {
           You got {correctCount} / {QUESTIONS.length} correct.
         </p>
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {txStatus === "pending" && (
             <motion.div
               key="pending"
