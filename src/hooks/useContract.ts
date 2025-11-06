@@ -3,7 +3,7 @@ import { base } from "viem/chains";
 import contractABI from "../abi/SmartContractDetective.json";
 import { sdk } from "@farcaster/miniapp-sdk";
 
-export const contractAddress = "0xfbc5fbe823f76964de240433ad00651a76c672c8";
+export const contractAddress = "0x4609cd98f33da555126af31060bbfdc52de75d9c";
 
 /**
  * Получаем Farcaster-провайдер
