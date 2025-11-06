@@ -1,4 +1,3 @@
 export default function WalletConnectButton() {
-  return (
-  );
+  return null;
 }
