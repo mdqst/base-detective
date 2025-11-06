@@ -18,7 +18,11 @@
       "quest"
     ],
     "heroImageUrl": "https://base-detective.vercel.app/hero.png",
-    "ogImageUrl": "https://base-detective.vercel.app/hero.png"
+    "ogImageUrl": "https://base-detective.vercel.app/hero.png",
+    "tagline": "Detect. Solve. Record.",
+    "buttonTitle": "Start Investigation",
+    "ogTitle": "Prove your skills on Base",
+    "ogDescription": "Prove your skills on Base"
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjI4OTg3NCwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGIyZjYyZDBEMWUzYmZEMEJCRUNDNURFYThGYWUzNDkzNDRDMTJDRDcifQ",
