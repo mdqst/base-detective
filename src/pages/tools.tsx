@@ -34,7 +34,7 @@ export default function ToolsPage() {
     setLoading(true);
 
     try {
-      // Базовая информация
+      // базовая информация
       const [bytecode, balance] = await Promise.all([
         client.getBytecode({ address }),
         client.getBalance({ address }),
@@ -49,8 +49,8 @@ export default function ToolsPage() {
       let sourcePreview = "";
       let stats: any = {};
 
-      // Определение типа контракта
       if (verified) {
+        // определение типа контракта
         try {
           const symbol = await client.readContract({
             address,
@@ -88,7 +88,7 @@ export default function ToolsPage() {
           }
         }
 
-        // Owner finder
+        // owner finder
         try {
           const ownerAddr = await client.readContract({
             address,
@@ -108,17 +108,18 @@ export default function ToolsPage() {
           owner = "Unknown";
         }
 
-        // Risk scan
+        // risk scan
         if (bytecode.includes("delegatecall")) riskFlags.push("Uses delegatecall");
         if (bytecode.includes("selfdestruct")) riskFlags.push("Contains selfdestruct");
         if (bytecode.length < 1000) riskFlags.push("Unusually small bytecode (possible stub)");
 
-        // Events
+        // events
         try {
           const latestBlock = await client.getBlockNumber();
+          const fromBlock = Number(latestBlock) - 5000;
           const logs = await client.getLogs({
             address,
-            fromBlock: latestBlock - 5000n,
+            fromBlock: BigInt(fromBlock),
             toBlock: latestBlock,
           });
           events = logs.slice(-5).map((log: any) => ({
@@ -129,7 +130,7 @@ export default function ToolsPage() {
           events = [];
         }
 
-        // Source preview (через BaseScan API)
+        // source preview
         try {
           const resp = await fetch(
             `https://api.basescan.org/api?module=contract&action=getsourcecode&address=${address}`
@@ -143,7 +144,7 @@ export default function ToolsPage() {
           sourcePreview = "";
         }
 
-        // Contract stats (через BaseScan API)
+        // stats
         try {
           const txResp = await fetch(
             `https://api.basescan.org/api?module=account&action=txlist&address=${address}&sort=desc`
@@ -154,9 +155,7 @@ export default function ToolsPage() {
             const last = txData.result[0];
             stats = {
               txCount: count,
-              lastActivity: new Date(
-                Number(last.timeStamp) * 1000
-              ).toLocaleDateString(),
+              lastActivity: new Date(Number(last.timeStamp) * 1000).toLocaleDateString(),
             };
           }
         } catch {
@@ -191,7 +190,7 @@ export default function ToolsPage() {
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="w-full max-w-md bg-surface rounded-2xl p-5 shadow-xl shadow-black/50 border border-white/10"
       >
-        <header className="flex flex-col gap-1 mb-5">
+        <header className="flex flex-col gap-1 mb-4">
           <h1 className="text-lg font-semibold text-white flex items-center gap-2">
             🧰 Onchain Tools
           </h1>
@@ -200,6 +199,17 @@ export default function ToolsPage() {
           </p>
         </header>
 
+        {/* 📘 Информационный блок */}
+        <div className="bg-black/30 rounded-xl border border-white/10 p-3 mb-5 text-xs text-gray-300">
+          <p className="text-blue-400 mb-1 font-medium">ℹ️ How to use these tools</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>Enter any Base contract address to analyze it</li>
+            <li>Check if it's ERC20, NFT, or Proxy</li>
+            <li>View source code, events, and risk indicators</li>
+          </ul>
+        </div>
+
+        {/* 🔍 Основной анализ */}
         <div className="flex flex-col gap-3">
           <input
             value={input}
@@ -218,6 +228,7 @@ export default function ToolsPage() {
 
         {error && <p className="text-red-400 text-xs mt-3">{error}</p>}
 
+        {/* 📊 Результаты */}
         {result && (
           <motion.div
             initial={{ opacity: 0 }}
