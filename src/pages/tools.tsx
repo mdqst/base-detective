@@ -257,6 +257,13 @@ export default function ToolsPage() {
           </button>
         </div>
 
+        <button
+              onClick={() => (window.location.href = "/")}
+              className="w-full mt-2 rounded-xl bg-white/5 text-xs text-textSecondary py-2 hover:bg-white/10 transition"
+            >
+              Back to Main
+            </button>
+
         {error && <p className="text-red-400 text-xs mt-3">{error}</p>}
 
         {result && (
@@ -352,13 +359,6 @@ export default function ToolsPage() {
           </motion.div>
         )}
       </motion.div>
-
-      <button
-              onClick={() => (window.location.href = "/")}
-              className="w-full mt-2 rounded-xl bg-white/5 text-xs text-textSecondary py-2 hover:bg-white/10 transition"
-            >
-              Back to Main
-      </button>
       <Footer />
     </div>
   );
