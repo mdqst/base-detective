@@ -84,13 +84,13 @@ function shuffle<T>(arr: T[], seed = Date.now()): T[] {
   const a = arr.slice();
   let m = a.length;
   let i: number;
-  // simple seeded-ish shuffle using seed-derived RNG
-  let random = () => {
-    // xorshift32-ish
-    seed ^= seed << 13;
-    seed ^= seed >>> 17;
-    seed ^= seed << 5;
-    return (seed >>> 0) / 4294967295;
+  let s = seed >>> 0;
+  const random = () => {
+    // xorshift32-ish deterministic PRNG (not cryptographic) for per-render shuffle
+    s ^= s << 13;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    return (s >>> 0) / 4294967295;
   };
   while (m) {
     i = Math.floor(random() * m--);
@@ -100,21 +100,20 @@ function shuffle<T>(arr: T[], seed = Date.now()): T[] {
 }
 
 export default function PlaygroundPage() {
-  // pick random order of challenges on first render
   const challengeOrder = useMemo(() => shuffle(CHALLENGES, Date.now()), []);
   const [index, setIndex] = useState(0);
   const challenge = challengeOrder[index];
 
-  // shuffle options per challenge instance (persist per render)
-  const [optionsState] = useState(() =>
+  const [optionsState] = useState<Record<string, string[]>>(() =>
     Object.fromEntries(
-      challengeOrder.map((c) => [c.id, shuffle(c.options, c.id.split("").reduce((s, ch) => s + ch.charCodeAt(0), 0))])
+      challengeOrder.map((c, idx) => [
+        c.id,
+        shuffle(c.options, c.id.split("").reduce((s, ch) => s + ch.charCodeAt(0) + idx, 0)),
+      ])
     )
   );
 
   const currentOptions = optionsState[challenge.id];
-
-  // We need to map currentOptions to know which one is correct
   const correctOptionText = challenge.options[challenge.correctIndex];
   const correctIndexInShuffled = currentOptions.findIndex((o) => o === correctOptionText);
 
@@ -124,7 +123,7 @@ export default function PlaygroundPage() {
   const [completedIds, setCompletedIds] = useState<string[]>([]);
 
   function chooseOption(i: number) {
-    if (revealed) return; // once revealed, don't accept new until next challenge or restart
+    if (revealed) return;
     setSelected(i);
     setAttempts((a) => a + 1);
     const isCorrect = i === correctIndexInShuffled;
@@ -132,9 +131,9 @@ export default function PlaygroundPage() {
       setRevealed(true);
       setCompletedIds((ids) => (ids.includes(challenge.id) ? ids : [...ids, challenge.id]));
     } else {
-      // mark wrong but allow retry — don't reveal correct yet
+      // allow retry — keep selection to show red
       setTimeout(() => {
-        // keep selected to show red; allow user to change
+        // intentionally empty — selection stays to indicate wrong
       }, 0);
     }
   }
@@ -144,7 +143,6 @@ export default function PlaygroundPage() {
     if (next < challengeOrder.length) {
       setIndex(next);
     } else {
-      // wrap around or restart at 0
       setIndex(0);
     }
     setSelected(null);
@@ -196,24 +194,20 @@ export default function PlaygroundPage() {
           {currentOptions.map((opt, i) => {
             const isSelected = selected === i;
             const isCorrect = revealed && i === correctIndexInShuffled;
-            const isWrong = isSelected && !isCorrect && revealed === false ? selected === i && selected !== correctIndexInShuffled && !revealed : false;
-            // Visual rules:
-            // - If revealed && correct -> green highlight
-            // - If selected && not correct -> red highlight (but do not reveal correct until correct chosen)
-            // - If not selected -> neutral
             const baseCls = "w-full text-sm text-left rounded-lg px-3 py-2 border transition";
-            let cls = baseCls + " bg-black/10 border-white/6";
+            let cls = baseCls + " bg-black/10 border-white/6 hover:bg-black/20";
             if (revealed && isCorrect) {
               cls = baseCls + " bg-green-600/30 border-green-500 text-white";
             } else if (isSelected && !revealed && selected !== correctIndexInShuffled) {
-              // user selected wrong, highlight red
               cls = baseCls + " bg-red-600/20 border-red-500 text-white";
-            } else {
-              cls = baseCls + " hover:bg-black/20";
             }
-
             return (
-              <button key={i} onClick={() => chooseOption(i)} className={cls} aria-pressed={isSelected}>
+              <button
+                key={i}
+                onClick={() => chooseOption(i)}
+                className={cls}
+                aria-pressed={isSelected}
+              >
                 <div className="flex items-center justify-between">
                   <span>{opt}</span>
                   {revealed && isCorrect && <span className="text-[12px] text-green-200">Correct</span>}
@@ -227,10 +221,7 @@ export default function PlaygroundPage() {
         <div className="mt-4 flex gap-2">
           {!revealed ? (
             <button
-              onClick={() => {
-                // hint: reveal correct after a penalty — but by default we don't reveal
-                setRevealed(true);
-              }}
+              onClick={() => setRevealed(true)}
               className="flex-1 rounded-xl bg-black/20 border border-white/6 text-sm py-2 hover:bg-black/30"
             >
               Show Explanation (skip)
@@ -264,7 +255,6 @@ export default function PlaygroundPage() {
           </div>
         </div>
 
-        {/* Success banner when revealed correct */}
         {revealed && selected === correctIndexInShuffled && (
           <motion.div
             initial={{ opacity: 0, y: 6 }}
@@ -275,7 +265,6 @@ export default function PlaygroundPage() {
           </motion.div>
         )}
 
-        {/* Footer links small */}
         <div className="mt-5 flex gap-2 justify-between items-center">
           <Link href="/tools" className="text-[13px] text-blue-400 hover:underline">
             ← Back to Tools
