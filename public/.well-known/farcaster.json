@@ -28,7 +28,6 @@
     "header": "eyJmaWQiOjI4OTg3NCwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGIyZjYyZDBEMWUzYmZEMEJCRUNDNURFYThGYWUzNDkzNDRDMTJDRDcifQ",
     "payload": "eyJkb21haW4iOiJiYXNlLWRldGVjdGl2ZS52ZXJjZWwuYXBwIn0",
     "signature": "IGZCSZ9NDxr1SFIA1FGP9dYH52N+0hZetmsfz6cp6HRYP42yb/mQiQo5lhQX8iQDo6FXIobpBSNlyC1YPzUzQBw="
-  }
     "baseBuilder": {
     "ownerAddress": "0xEdBD6a7E22E466D3783653E09246C96843a83097"
   }
