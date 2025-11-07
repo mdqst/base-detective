@@ -1,13 +1,10 @@
-import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { useState } from "react";
 import Footer from "../components/Footer";
-import Link from "next/link";
 
 type Challenge = {
-  id: string;
+  id: number;
   title: string;
-  difficulty: "Easy" | "Medium" | "Hard";
-  prompt: string;
+  description: string;
   options: string[];
   correctIndex: number;
   explanation: string;
@@ -15,265 +12,217 @@ type Challenge = {
 
 const CHALLENGES: Challenge[] = [
   {
-    id: "reentrancy",
+    id: "1",
     title: "Reentrancy Vulnerability",
-    difficulty: "Medium",
-    prompt:
-      "This contract exposes a withdraw() that sends ETH before updating the user balance. Which action describes the correct exploitation vector?",
+    description:
+      "A vulnerable withdraw() function sends ETH before updating user balance. How can it be exploited?",
     options: [
-      "Call withdraw() directly once from an EOA repeatedly",
-      "Implement a fallback that calls withdraw() again during the external call",
-      "Call a view function to drain balances",
-      "Use delegatecall to change storage of the contract",
+      "Call withdraw() directly multiple times",
+      "Use a fallback that calls withdraw() again during execution",
+      "Use a staticcall to withdraw()",
+      "Change storage via delegatecall",
     ],
     correctIndex: 1,
     explanation:
-      "Reentrancy works when a contract sends funds before updating state. The attacker implements a fallback (or receive) that calls withdraw() again while the first withdraw is still executing — draining funds.",
+      "Reentrancy works when external calls happen before state updates. Attacker re-enters withdraw() through fallback and drains funds.",
   },
   {
-    id: "overflow",
+    id: "2",
     title: "Integer Overflow",
-    difficulty: "Easy",
-    prompt:
-      "A token contract uses `uint8` for balances and does not check arithmetic. Which of the following best describes a way to exploit it?",
+    description:
+      "A token uses uint8 for balances without SafeMath. How could an attacker exploit this?",
     options: [
-      "Send many tiny transfers until a balance wraps around to 0 then gain tokens",
-      "Call owner-only function to mint tokens",
-      "Use selfdestruct to steal the token's balance",
-      "Call approve() without specifying spender",
+      "Send small transfers to wrap balance to 0",
+      "Use delegatecall to bypass math",
+      "Exploit constructor to mint tokens",
+      "Freeze contract storage",
     ],
     correctIndex: 0,
     explanation:
-      "If arithmetic is unchecked and types are small, an attacker can craft transfers that cause wraparound (overflow/underflow) to manipulate balances. Modern solidity has built-in checks but older code/unchecked blocks are vulnerable.",
+      "Without overflow checks, balance arithmetic wraps around at 256. Repeated transfers can overflow balances.",
   },
   {
-    id: "access_control",
+    id: "3",
     title: "Access Control Flaw",
-    difficulty: "Easy",
-    prompt:
-      "A contract exposes `setRate(uint256 r)` and expects only owner to call it, but owner check is `if (msg.sender == owner) { ... }` and owner stored in a public variable that can be changed by anyone due to a missing initializer. What's the most likely cause?",
+    description:
+      "The contract has setOwner() callable by anyone because the constructor wasn’t run. What’s the issue?",
     options: [
-      "Someone can change owner because owner was never set — call initialize() to become owner",
-      "The contract is immutable and cannot be changed",
-      "You need to call setRate twice to change owner",
-      "This is safe — owner is private",
+      "Uninitialized ownership lets attacker become owner",
+      "Private variable leak",
+      "Gas limit vulnerability",
+      "Locked storage slot",
     ],
     correctIndex: 0,
     explanation:
-      "If the owner variable was never correctly initialized (e.g., missing in constructor or initializer), an attacker can become owner by calling an initialization function or exploiting an uninitialized storage slot.",
-  },
-  {
-    id: "delegatecall",
-    title: "Delegatecall Misuse",
-    difficulty: "Hard",
-    prompt:
-      "A proxy uses delegatecall to an implementation contract but trusts the implementation's storage layout. Which exploitation is relevant?",
-    options: [
-      "Call a function that delegatecalls to an attacker-controlled contract which overwrites critical slots (owner, admin).",
-      "Call a pure function to get balance",
-      "Use `transfer` to send ETH to the contract",
-      "Read a public variable to become owner",
-    ],
-    correctIndex: 0,
-    explanation:
-      "Delegatecall executes code in the caller's context, so if the implementation address is attacker-controlled (or incorrectly set), the implementation can modify the proxy's storage and take ownership or change behavior.",
+      "If ownership isn’t initialized, anyone can call the initializer to become owner — a common proxy setup bug.",
   },
 ];
 
-function shuffle<T>(arr: T[], seed = Date.now()): T[] {
-  const a = arr.slice();
-  let m = a.length;
-  let i: number;
-  let s = seed >>> 0;
-  const random = () => {
-    // xorshift32-ish deterministic PRNG (not cryptographic) for per-render shuffle
-    s ^= s << 13;
-    s ^= s >>> 17;
-    s ^= s << 5;
-    return (s >>> 0) / 4294967295;
-  };
-  while (m) {
-    i = Math.floor(random() * m--);
-    [a[m], a[i]] = [a[i], a[m]];
-  }
-  return a;
-}
-
-export default function PlaygroundPage() {
-  const challengeOrder = useMemo(() => shuffle(CHALLENGES, Date.now()), []);
-  const [index, setIndex] = useState(0);
-  const challenge = challengeOrder[index];
-
-  const [optionsState] = useState<Record<string, string[]>>(() =>
-    Object.fromEntries(
-      challengeOrder.map((c, idx) => [
-        c.id,
-        shuffle(c.options, c.id.split("").reduce((s, ch) => s + ch.charCodeAt(0) + idx, 0)),
-      ])
-    )
-  );
-
-  const currentOptions = optionsState[challenge.id];
-  const correctOptionText = challenge.options[challenge.correctIndex];
-  const correctIndexInShuffled = currentOptions.findIndex((o) => o === correctOptionText);
-
+export default function Playground() {
+  const [started, setStarted] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
-  const [revealed, setRevealed] = useState(false);
-  const [attempts, setAttempts] = useState(0);
-  const [completedIds, setCompletedIds] = useState<string[]>([]);
+  const [wrongAnswer, setWrongAnswer] = useState<number | null>(null);
+  const [correctAnswer, setCorrectAnswer] = useState<number | null>(null);
 
-  function chooseOption(i: number) {
-    if (revealed) return;
-    setSelected(i);
-    setAttempts((a) => a + 1);
-    const isCorrect = i === correctIndexInShuffled;
+  const total = CHALLENGES.length;
+  const challenge = CHALLENGES[current];
+
+  function handleStart() {
+    setStarted(true);
+    setFinished(false);
+    setCurrent(0);
+    setSelected(null);
+    setWrongAnswer(null);
+    setCorrectAnswer(null);
+  }
+
+  function handleAnswer(idx: number) {
+    const isCorrect = idx === challenge.correctIndex;
     if (isCorrect) {
-      setRevealed(true);
-      setCompletedIds((ids) => (ids.includes(challenge.id) ? ids : [...ids, challenge.id]));
-    } else {
-      // allow retry — keep selection to show red
+      setCorrectAnswer(idx);
+      setWrongAnswer(null);
       setTimeout(() => {
-        // intentionally empty — selection stays to indicate wrong
-      }, 0);
-    }
-  }
-
-  function nextChallenge() {
-    const next = index + 1;
-    if (next < challengeOrder.length) {
-      setIndex(next);
+        setCorrectAnswer(null);
+        if (current < total - 1) {
+          setCurrent(current + 1);
+          setSelected(null);
+        } else {
+          setFinished(true);
+        }
+      }, 400);
     } else {
-      setIndex(0);
+      setWrongAnswer(idx);
     }
-    setSelected(null);
-    setRevealed(false);
-    setAttempts(0);
-  }
-
-  function restartChallenge() {
-    setSelected(null);
-    setRevealed(false);
-    setAttempts(0);
-  }
-
-  function completionProgress() {
-    return Math.round((completedIds.length / challengeOrder.length) * 100);
   }
 
   return (
-    <div className="flex flex-col items-center bg-background text-textPrimary px-4 py-8">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="w-full max-w-md bg-surface rounded-2xl p-5 shadow-xl shadow-black/50 border border-white/10"
-      >
-        <header className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-lg font-semibold text-white flex items-center gap-2">🧨 Security Playground</h1>
-            <p className="text-[11px] text-textSecondary">Learn smart contract bugs by solving short simulations</p>
+    <main className="flex flex-col items-center justify-start min-h-screen bg-background text-textPrimary px-4 py-8 relative overflow-hidden">
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.4s ease-out;
+        }
+      `}</style>
+
+      <div className="w-full max-w-md bg-surface rounded-2xl p-5 shadow-xl shadow-black/50 border border-white/10 animate-fadeIn z-10">
+        {/* Header */}
+        <header className="flex flex-col gap-2 mb-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-semibold text-white flex items-center gap-2">
+              🧨 Security Playground
+            </h1>
+            <span className="text-[10px] text-textSecondary bg-white/5 border border-white/10 rounded-md px-2 py-1 leading-none">
+              {current + 1} / {total}
+            </span>
           </div>
-          <div className="text-right text-[12px]">
-            <div className="text-[11px] text-textSecondary">Progress</div>
-            <div className="text-sm font-semibold text-accent">{completedIds.length}/{challengeOrder.length} · {completionProgress()}%</div>
-          </div>
+          <p className="text-sm text-textSecondary leading-relaxed">
+            Learn smart contract security by solving short exploit simulations.
+          </p>
         </header>
 
-        <section className="mb-4">
-          <div className="text-sm text-textSecondary mb-2">
-            <strong className="text-white">{challenge.title}</strong>
-            <span className="ml-2 text-[11px] px-2 py-0.5 rounded-md bg-black/20 text-textSecondary">{challenge.difficulty}</span>
-          </div>
-
-          <div className="bg-black/20 p-3 rounded-xl border border-white/6 text-sm">
-            <p>{challenge.prompt}</p>
-          </div>
-        </section>
-
-        <div className="flex flex-col gap-3">
-          {currentOptions.map((opt, i) => {
-            const isSelected = selected === i;
-            const isCorrect = revealed && i === correctIndexInShuffled;
-            const baseCls = "w-full text-sm text-left rounded-lg px-3 py-2 border transition";
-            let cls = baseCls + " bg-black/10 border-white/6 hover:bg-black/20";
-            if (revealed && isCorrect) {
-              cls = baseCls + " bg-green-600/30 border-green-500 text-white";
-            } else if (isSelected && !revealed && selected !== correctIndexInShuffled) {
-              cls = baseCls + " bg-red-600/20 border-red-500 text-white";
-            }
-            return (
-              <button
-                key={i}
-                onClick={() => chooseOption(i)}
-                className={cls}
-                aria-pressed={isSelected}
-              >
-                <div className="flex items-center justify-between">
-                  <span>{opt}</span>
-                  {revealed && isCorrect && <span className="text-[12px] text-green-200">Correct</span>}
-                  {!revealed && isSelected && selected !== correctIndexInShuffled && <span className="text-[12px] text-red-200">Wrong</span>}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-4 flex gap-2">
-          {!revealed ? (
-            <button
-              onClick={() => setRevealed(true)}
-              className="flex-1 rounded-xl bg-black/20 border border-white/6 text-sm py-2 hover:bg-black/30"
-            >
-              Show Explanation (skip)
-            </button>
-          ) : (
-            <div className="flex-1 rounded-xl bg-black/20 border border-white/6 text-sm py-2 px-3">
-              <div className="text-sm text-textSecondary mb-1">Explanation</div>
-              <div className="text-sm text-gray-100">{challenge.explanation}</div>
+        {/* Start screen */}
+        {!started && !finished && (
+          <section className="flex flex-col gap-4">
+            <div className="text-xs text-textSecondary bg-white/5 rounded-xl border border-white/10 p-3 leading-relaxed">
+              <p className="mb-2">• Discover real smart contract bugs interactively.</p>
+              <p className="mb-1">• Each challenge focuses on one exploit type.</p>
+              <p className="mb-1">
+                • Wrong answers turn{" "}
+                <span className="text-red-400 font-medium">red</span>, but you can retry.
+              </p>
+              <p>• Train your detective instincts for security.</p>
             </div>
-          )}
 
-          <button
-            onClick={restartChallenge}
-            className="rounded-xl bg-transparent border border-white/6 text-sm py-2 px-4 hover:bg-black/10"
-          >
-            Retry
-          </button>
-
-          <button
-            onClick={nextChallenge}
-            className="rounded-xl bg-accent text-white text-sm py-2 px-4 hover:opacity-90"
-          >
-            Next
-          </button>
-        </div>
-
-        <div className="mt-4 text-[12px] text-textSecondary">
-          <div>Attempts this challenge: <span className="font-medium text-white">{attempts}</span></div>
-          <div className="mt-2 text-xs text-gray-400">
-            Tip: read the prompt carefully — these simulations are intentionally simplified to teach core concepts.
-          </div>
-        </div>
-
-        {revealed && selected === correctIndexInShuffled && (
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-4 p-3 rounded-lg bg-green-600/20 border border-green-500 text-green-100 text-sm"
-          >
-            Exploit successful — well done! You can read the explanation above and proceed to the next simulation.
-          </motion.div>
+            <button
+              onClick={handleStart}
+              className="w-full rounded-xl bg-accent text-white font-medium text-sm py-3 shadow-lg shadow-blue-500/20 hover:opacity-90 transition"
+            >
+              Start Playground
+            </button>
+          </section>
         )}
 
-        <div className="mt-5 flex gap-2 justify-between items-center">
-          <Link href="/tools" className="text-[13px] text-blue-400 hover:underline">
-            ← Back to Tools
-          </Link>
-          <div className="text-[12px] text-textSecondary">Play safe — simulation only</div>
-        </div>
-      </motion.div>
+        {/* Challenge screen */}
+        {started && !finished && (
+          <section className="flex flex-col gap-4 animate-fadeIn">
+            <div>
+              <div className="text-[11px] text-textSecondary mb-2">
+                Challenge {current + 1} / {total}
+              </div>
+              <div className="text-white text-base font-medium leading-relaxed">
+                {challenge.description}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {challenge.options.map((opt, idx) => {
+                const isWrong = wrongAnswer === idx;
+                const isCorrect = correctAnswer === idx;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleAnswer(idx)}
+                    className={`w-full text-left rounded-xl border px-4 py-3 text-sm leading-relaxed transition-all duration-200
+                      ${
+                        isWrong
+                          ? "border-red-500/60 bg-red-500/10 text-red-300"
+                          : isCorrect
+                          ? "border-green-500/60 bg-green-500/10 text-green-300"
+                          : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                      }`}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/10 mt-4">
+              <div
+                className="bg-accent h-full transition-all"
+                style={{ width: `${((current + 1) / total) * 100}%` }}
+              />
+            </div>
+          </section>
+        )}
+
+        {/* Finish screen */}
+        {finished && (
+          <section className="flex flex-col gap-4 text-center animate-fadeIn">
+            <h2 className="text-white text-xl font-semibold">Playground Complete 🎉</h2>
+            <p className="text-sm text-textSecondary leading-relaxed">
+              You’ve mastered the basics of smart contract exploits. New simulations coming soon!
+            </p>
+
+            <button
+              onClick={handleStart}
+              className="w-full rounded-xl bg-accent text-white font-medium text-sm py-3 shadow-lg shadow-blue-500/20 hover:opacity-90 transition"
+            >
+              Replay Challenges
+            </button>
+
+            <button
+              onClick={() => (window.location.href = "/")}
+              className="w-full mt-2 rounded-xl bg-white/5 text-xs text-textSecondary py-2 hover:bg-white/10 transition"
+            >
+              Back to Main
+            </button>
+          </section>
+        )}
+      </div>
 
       <Footer />
-    </div>
+    </main>
   );
 }
