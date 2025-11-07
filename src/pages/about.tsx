@@ -56,12 +56,6 @@ export default function AboutPage() {
           >
             🔍 Back to the Case
           </Link>
-                        <button
-        onClick={() => (window.location.href = "/")}
-        className="w-full max-w-md mt-6 rounded-xl bg-white/5 text-xs text-textSecondary py-2 hover:bg-white/10 transition"
-      >
-        Back to Main
-      </button>
         </div>
       </motion.div>
 
