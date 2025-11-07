@@ -1,5 +1,5 @@
 {
-  "frame": {
+  "miniapp": {
     "name": "Base Detective",
     "version": "1",
     "iconUrl": "https://base-detective.vercel.app/icon.png",
