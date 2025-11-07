@@ -325,7 +325,7 @@ export default function Home() {
       <footer className="text-[10px] text-textSecondary mt-6 opacity-60 text-center leading-relaxed z-10">
         <div>Contract: 0xfbc5fbe823f76964de240433ad00651a76c672c8</div>
       </footer>
-      <Footer />
     </main>
+    <Footer />
   );
 }
