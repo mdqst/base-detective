@@ -5,12 +5,13 @@ import Footer from "../components/Footer";
 export default function AboutPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-textPrimary">
-      <main className="flex-grow flex flex-col items-center justify-center px-4 py-10">
+      {/* убрали justify-center → добавили justify-start */}
+      <main className="flex-grow flex flex-col items-center justify-start px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="w-full max-w-md bg-surface rounded-2xl p-5 shadow-xl shadow-black/50 border border-white/10"
+          className="w-full max-w-md bg-surface rounded-2xl p-5 shadow-xl shadow-black/50 border border-white/10 mt-6"
         >
           <header className="flex flex-col gap-1 mb-4">
             <h1 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -28,13 +29,13 @@ export default function AboutPage() {
             </p>
 
             <p>
-              Each week, you’ll face a new mystery - inspired by real smart contract exploits, DeFi
+              Each week, you’ll face a new mystery — inspired by real smart contract exploits, DeFi
               hacks, and web3 puzzles.
             </p>
 
             <p>
               Solve questions, analyze clues, and uncover what went wrong. At the end, your result
-              is permanently recorded on Base - proof of your skills and progress as an onchain
+              is permanently recorded on Base — proof of your skills and progress as an onchain
               detective.
             </p>
 
@@ -45,7 +46,7 @@ export default function AboutPage() {
             </p>
 
             <p className="text-textPrimary font-medium">
-              🕵️‍♂️ New cases are released every week - there’s always a new challenge waiting to be
+              🕵️‍♂️ New cases are released every week — there’s always a new challenge waiting to be
               solved.
             </p>
           </section>
