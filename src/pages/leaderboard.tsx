@@ -6,7 +6,6 @@ import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import contractABI from "../abi/SmartContractDetective.json";
 import { contractAddress } from "../hooks/useContract";
-import { sdk } from "@farcaster/miniapp-sdk";
 
 const publicClient = createPublicClient({
   chain: base,
@@ -15,6 +14,28 @@ const publicClient = createPublicClient({
 
 function shortenAddress(addr: string) {
   return addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
+}
+
+// ✅ Получаем Farcaster handle через Neynar API
+async function getFarcasterHandle(address: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${address}`,
+      {
+        headers: {
+          accept: "application/json",
+          api_key: "89E19C79-3266-4220-BA74-03439382EF7D",
+        },
+      }
+    );
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    const user = data?.users?.[address.toLowerCase()];
+    return user?.username ? `@${user.username}` : null;
+  } catch {
+    return null;
+  }
 }
 
 export default function LeaderboardPage() {
@@ -29,24 +50,20 @@ export default function LeaderboardPage() {
         const users = await publicClient.readContract({
           address: contractAddress as `0x${string}`,
           abi: contractABI.abi,
-          functionName: "getCompletedUsers", // замени на свою функцию, если нужно
+          functionName: "getCompletedUsers", // замени на нужную функцию
         });
 
         const addresses = users as string[];
 
+        // 🚀 Для каждого адреса получаем Farcaster handle
         const enriched = await Promise.all(
           addresses.map(async (addr) => {
-            try {
-              // ✅ правильный вызов по новому SDK
-              const fcUser = await sdk.wallet.lookupUserByAddress(addr);
-              return {
-                address: addr,
-                handle: fcUser?.username ? `@${fcUser.username}` : undefined,
-                cases: 1,
-              };
-            } catch {
-              return { address: addr, cases: 1 };
-            }
+            const handle = await getFarcasterHandle(addr);
+            return {
+              address: addr,
+              handle: handle || undefined,
+              cases: 1,
+            };
           })
         );
 
@@ -90,16 +107,21 @@ export default function LeaderboardPage() {
                 className="flex justify-between items-center py-3 text-sm"
               >
                 <div className="flex flex-col">
-                  <span className="font-medium text-white">
-                    {user.handle || shortenAddress(user.address)}
+                  <span className="font-medium text-white flex items-center gap-1">
+                    {user.handle ? (
+                      <>
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#855DCD] inline-block" />
+                        {user.handle}
+                      </>
+                    ) : (
+                      shortenAddress(user.address)
+                    )}
                   </span>
                   <span className="text-[11px] text-textSecondary">
                     Detective Rank #{index + 1}
                   </span>
                 </div>
-                <span className="text-accent font-semibold">
-                  {user.cases} case
-                </span>
+                <span className="text-accent font-semibold">{user.cases} case</span>
               </div>
             ))}
           </section>
