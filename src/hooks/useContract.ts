@@ -1,41 +1,31 @@
 import { createWalletClient, custom } from "viem";
 import { base } from "viem/chains";
 import contractABI from "../abi/SmartContractDetective.json";
+import { sdk } from "@farcaster/miniapp-sdk";
 
-export const contractAddress = "0xfbc5fbe823f76964de240433ad00651a76c672c8";
+export const contractAddress = "0x4609cd98f33da555126af31060bbfdc52de75d9c";
 
 /**
- * Берём провайдер из Farcaster Miniapp SDK.
- * В index.tsx ты передаёшь сюда sdk: getFarcasterProvider(sdk)
+ * Получаем Farcaster-провайдер
  */
-export async function getFarcasterProvider(sdkInstance: any) {
+export async function getFarcasterProvider(sdkInstance: typeof sdk) {
   try {
-    // Новый способ в miniapp-sdk: ethProvider вместо requestProvider
-    const provider = sdkInstance.wallet.ethProvider;
-    if (!provider) {
-      throw new Error("Farcaster ethProvider is not available");
-    }
-    return provider;
+    if (sdkInstance?.wallet?.ethProvider) return sdkInstance.wallet.ethProvider;
+    console.warn("⚠️ Farcaster provider not found via SDK");
+    return null;
   } catch (err) {
-    console.error("❌ Failed to get Farcaster provider:", err);
+    console.error("❌ getFarcasterProvider failed:", err);
     return null;
   }
 }
 
 /**
- * Записываем результат прохождения кейса в контракт.
- * caseId — номер кейса, result — условный результат (у тебя сейчас 1).
+ * Записывает результат расследования.
+ * Если контракт требует startCase — вызывает его автоматически.
  */
-export async function completeCaseTx(
-  provider: any,
-  caseId: number,
-  result: number
-) {
-  if (!provider) {
-    throw new Error("Provider not found");
-  }
+export async function completeCaseTx(provider: any, caseId: number, score: number) {
+  if (!provider) throw new Error("No provider connected");
 
-  // Клиент поверх Farcaster-провайдера
   const walletClient = createWalletClient({
     chain: base,
     transport: custom(provider),
@@ -43,49 +33,51 @@ export async function completeCaseTx(
 
   const [account] = await walletClient.getAddresses();
 
-  // ✅ Проверка сети: Base Mainnet (0x2105)
-  const chainId = await provider.request({ method: "eth_chainId" });
-  if (chainId !== "0x2105") {
-    alert("Please switch to Base Mainnet to record your result.");
-    return;
-  }
-
-  // ✅ Проверка баланса на газ
-  const balanceHex = await provider.request({
-    method: "eth_getBalance",
-    params: [account, "latest"],
-  });
-  const balance = BigInt(balanceHex as string);
-  const minBalance = BigInt("50000000000000"); // ~0.00005 ETH
-
-  if (balance < minBalance) {
-    alert("You need some ETH on Base to cover gas fees.");
-    return;
-  }
-
-  console.log("🚀 Sending TX from:", account);
-
   try {
-    const hash = await walletClient.writeContract({
+    // 🟢 Пытаемся сразу записать результат
+    const completeTx = await walletClient.writeContract({
       address: contractAddress as `0x${string}`,
-      // ABI может быть либо целиком, либо в поле abi
-      abi: (contractABI as any).abi || (contractABI as any),
+      abi: contractABI.abi,
       functionName: "completeCase",
-      args: [BigInt(caseId), BigInt(result)],
+      args: [caseId, score],
       account,
     });
 
-    console.log("✅ TX sent:", hash);
-    return hash;
+    console.log("✅ completeCase TX:", completeTx);
+    return completeTx;
   } catch (err: any) {
-    console.error("❌ TX error:", err);
+    console.warn("⚠️ completeCase failed:", err.message || err);
 
-    if (err?.message?.toLowerCase().includes("simulation failed")) {
-      alert(
-        "Simulation failed when trying to record your result. The contract may require different conditions."
-      );
-    } else {
-      alert("Failed to record result. Please try again later.");
+    // Если контракт требует startCase()
+    if (err.message?.includes("#1002") || err.message?.includes("Start case first")) {
+      console.log("🟡 Calling startCase first...");
+
+      try {
+        // 1️⃣ startCase
+        const startTx = await walletClient.writeContract({
+          address: contractAddress as `0x${string}`,
+          abi: contractABI.abi,
+          functionName: "startCase",
+          args: [caseId],
+          account,
+          value: BigInt(0),
+        });
+        console.log("🟢 startCase TX:", startTx);
+
+        // 2️⃣ completeCase
+        const retryTx = await walletClient.writeContract({
+          address: contractAddress as `0x${string}`,
+          abi: contractABI.abi,
+          functionName: "completeCase",
+          args: [caseId, score],
+          account,
+        });
+        console.log("✅ completeCase TX after startCase:", retryTx);
+        return retryTx;
+      } catch (innerErr) {
+        console.error("❌ startCase or retry completeCase failed:", innerErr);
+        throw innerErr;
+      }
     }
 
     throw err;
