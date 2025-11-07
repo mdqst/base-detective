@@ -1,7 +1,13 @@
 import { motion } from "framer-motion";
 import Footer from "../components/Footer";
 import { useState } from "react";
-import { createPublicClient, http, isAddress, getAddress, formatEther } from "viem";
+import {
+  createPublicClient,
+  http,
+  isAddress,
+  getAddress,
+  formatEther,
+} from "viem";
 import { base } from "viem/chains";
 
 const client = createPublicClient({
@@ -28,23 +34,18 @@ export default function ToolsPage() {
     setLoading(true);
 
     try {
+      // Получаем bytecode и баланс
       const [bytecode, balance] = await Promise.all([
         client.getBytecode({ address }),
         client.getBalance({ address }),
       ]);
 
       const verified = bytecode && bytecode.length > 2;
-      const creator = await client.getTransactionReceipt({
-        hash: (await client.getTransaction({
-          hash: (await client.getBlock({ blockNumber: 0n })).hash,
-        })).hash,
-      }).catch(() => null);
 
       setResult({
         address,
         verified,
         balance: formatEther(balance),
-        creator: creator?.from || "Unknown",
       });
     } catch (err) {
       console.error(err);
@@ -96,10 +97,27 @@ export default function ToolsPage() {
             className="mt-5 bg-black/30 rounded-xl border border-white/10 p-4 text-sm"
           >
             <p className="text-accent font-semibold mb-2">🔎 Analysis Result</p>
-            <p><span className="text-gray-400">Address:</span> {result.address}</p>
-            <p><span className="text-gray-400">Verified:</span> {result.verified ? "✅ Yes" : "❌ No"}</p>
-            <p><span className="text-gray-400">Balance:</span> {result.balance} ETH</p>
-            <p><span className="text-gray-400">Creator:</span> {result.creator}</p>
+            <p>
+              <span className="text-gray-400">Address:</span> {result.address}
+            </p>
+            <p>
+              <span className="text-gray-400">Verified:</span>{" "}
+              {result.verified ? "✅ Yes (Has bytecode)" : "❌ No bytecode found"}
+            </p>
+            <p>
+              <span className="text-gray-400">Balance:</span>{" "}
+              {result.balance} ETH
+            </p>
+            <p className="mt-2">
+              <a
+                href={`https://basescan.org/address/${result.address}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:underline text-[13px]"
+              >
+                🔗 View on BaseScan
+              </a>
+            </p>
           </motion.div>
         )}
       </motion.div>
