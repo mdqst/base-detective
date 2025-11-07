@@ -34,7 +34,7 @@ export default function ToolsPage() {
     setLoading(true);
 
     try {
-      // Получаем bytecode и баланс
+      // Базовая информация
       const [bytecode, balance] = await Promise.all([
         client.getBytecode({ address }),
         client.getBalance({ address }),
@@ -42,30 +42,33 @@ export default function ToolsPage() {
 
       const verified = bytecode && bytecode.length > 2;
       let contractType = "EOA (Externally Owned Account)";
+      let owner = "Unknown";
       let isProxy = false;
+      let riskFlags: string[] = [];
+      let events: any[] = [];
+      let sourcePreview = "";
+      let stats: any = {};
 
+      // Определение типа контракта
       if (verified) {
-        // Пробуем определить тип контракта
         try {
-          // ERC165 поддержка — определим ERC721 или ERC1155
-          const erc165 = await client.readContract({
+          const symbol = await client.readContract({
             address,
             abi: [
               {
-                name: "supportsInterface",
+                name: "symbol",
                 type: "function",
                 stateMutability: "view",
-                inputs: [{ name: "interfaceId", type: "bytes4" }],
-                outputs: [{ name: "", type: "bool" }],
+                inputs: [],
+                outputs: [{ type: "string" }],
               },
             ],
-            functionName: "supportsInterface",
-            args: ["0x80ac58cd"], // ERC721
+            functionName: "symbol",
           });
-
-          if (erc165) contractType = "ERC721 NFT";
-          else {
-            const erc1155 = await client.readContract({
+          if (symbol) contractType = "ERC20 Token";
+        } catch {
+          try {
+            const erc165 = await client.readContract({
               address,
               abi: [
                 {
@@ -73,45 +76,91 @@ export default function ToolsPage() {
                   type: "function",
                   stateMutability: "view",
                   inputs: [{ name: "interfaceId", type: "bytes4" }],
-                  outputs: [{ name: "", type: "bool" }],
+                  outputs: [{ type: "bool" }],
                 },
               ],
               functionName: "supportsInterface",
-              args: ["0xd9b67a26"], // ERC1155
+              args: ["0x80ac58cd"], // ERC721
             });
-            if (erc1155) contractType = "ERC1155 Multi Token";
+            if (erc165) contractType = "ERC721 NFT";
+          } catch {
+            contractType = "Custom Contract";
+          }
+        }
+
+        // Owner finder
+        try {
+          const ownerAddr = await client.readContract({
+            address,
+            abi: [
+              {
+                name: "owner",
+                type: "function",
+                stateMutability: "view",
+                inputs: [],
+                outputs: [{ type: "address" }],
+              },
+            ],
+            functionName: "owner",
+          });
+          owner = ownerAddr;
+        } catch {
+          owner = "Unknown";
+        }
+
+        // Risk scan
+        if (bytecode.includes("delegatecall")) riskFlags.push("Uses delegatecall");
+        if (bytecode.includes("selfdestruct")) riskFlags.push("Contains selfdestruct");
+        if (bytecode.length < 1000) riskFlags.push("Unusually small bytecode (possible stub)");
+
+        // Events
+        try {
+          const latestBlock = await client.getBlockNumber();
+          const logs = await client.getLogs({
+            address,
+            fromBlock: latestBlock - 5000n,
+            toBlock: latestBlock,
+          });
+          events = logs.slice(-5).map((log: any) => ({
+            txHash: log.transactionHash,
+            block: Number(log.blockNumber),
+          }));
+        } catch {
+          events = [];
+        }
+
+        // Source preview (через BaseScan API)
+        try {
+          const resp = await fetch(
+            `https://api.basescan.org/api?module=contract&action=getsourcecode&address=${address}`
+          );
+          const data = await resp.json();
+          if (data?.result?.[0]?.SourceCode) {
+            const lines = data.result[0].SourceCode.split("\n").slice(0, 8);
+            sourcePreview = lines.join("\n");
           }
         } catch {
-          // Не поддерживает supportsInterface → возможно ERC20
-          try {
-            const symbol = await client.readContract({
-              address,
-              abi: [
-                {
-                  name: "symbol",
-                  type: "function",
-                  stateMutability: "view",
-                  inputs: [],
-                  outputs: [{ type: "string" }],
-                },
-              ],
-              functionName: "symbol",
-            });
-            if (symbol) contractType = "ERC20 Token";
-          } catch {
-            // Может быть прокси?
-            try {
-              const implSlot =
-                "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"; // EIP-1967 slot
-              const impl = await client.getStorageAt({ address, slot: implSlot });
-              if (impl && impl !== "0x0") {
-                contractType = "Proxy Contract";
-                isProxy = true;
-              }
-            } catch {
-              contractType = "Custom Contract";
-            }
+          sourcePreview = "";
+        }
+
+        // Contract stats (через BaseScan API)
+        try {
+          const txResp = await fetch(
+            `https://api.basescan.org/api?module=account&action=txlist&address=${address}&sort=desc`
+          );
+          const txData = await txResp.json();
+          if (txData?.result?.length) {
+            const count = txData.result.length;
+            const last = txData.result[0];
+            stats = {
+              txCount: count,
+              lastActivity: new Date(
+                Number(last.timeStamp) * 1000
+              ).toLocaleDateString(),
+            };
           }
+        } catch {
+          stats = {};
         }
       }
 
@@ -120,7 +169,11 @@ export default function ToolsPage() {
         verified,
         balance: formatEther(balance),
         contractType,
-        isProxy,
+        owner,
+        riskFlags,
+        events,
+        sourcePreview,
+        stats,
       });
     } catch (err) {
       console.error(err);
@@ -143,7 +196,7 @@ export default function ToolsPage() {
             🧰 Onchain Tools
           </h1>
           <p className="text-[11px] text-textSecondary tracking-[0.05em]">
-            Analyze any Base contract address
+            Investigate any Base contract address
           </p>
         </header>
 
@@ -169,30 +222,64 @@ export default function ToolsPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mt-5 bg-black/30 rounded-xl border border-white/10 p-4 text-sm"
+            className="mt-5 bg-black/30 rounded-xl border border-white/10 p-4 text-sm space-y-2"
           >
             <p className="text-accent font-semibold mb-2">🔎 Analysis Result</p>
-            <p>
-              <span className="text-gray-400">Address:</span> {result.address}
-            </p>
-            <p>
-              <span className="text-gray-400">Verified:</span>{" "}
-              {result.verified ? "✅ Yes (Has bytecode)" : "❌ No bytecode found"}
-            </p>
-            <p>
-              <span className="text-gray-400">Balance:</span>{" "}
-              {result.balance} ETH
-            </p>
-            <p>
-              <span className="text-gray-400">Contract Type:</span>{" "}
-              {result.contractType}
-            </p>
-            {result.isProxy && (
-              <p className="text-yellow-400 text-xs mt-1">
-                ⚠️ This contract might be an upgradeable proxy
-              </p>
+            <p><span className="text-gray-400">Address:</span> {result.address}</p>
+            <p><span className="text-gray-400">Verified:</span> {result.verified ? "✅ Yes" : "❌ No"}</p>
+            <p><span className="text-gray-400">Balance:</span> {result.balance} ETH</p>
+            <p><span className="text-gray-400">Type:</span> {result.contractType}</p>
+            <p><span className="text-gray-400">Owner:</span> {result.owner}</p>
+
+            {result.stats?.txCount && (
+              <>
+                <p><span className="text-gray-400">Transactions:</span> {result.stats.txCount}</p>
+                <p><span className="text-gray-400">Last Activity:</span> {result.stats.lastActivity}</p>
+              </>
             )}
-            <p className="mt-2">
+
+            {result.riskFlags.length > 0 && (
+              <div className="mt-2">
+                <p className="text-red-400 font-medium">⚠️ Risk Flags:</p>
+                <ul className="list-disc list-inside text-xs text-gray-300">
+                  {result.riskFlags.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result.events.length > 0 && (
+              <div className="mt-2">
+                <p className="text-blue-400 font-medium">📜 Recent Events:</p>
+                <ul className="list-disc list-inside text-xs text-gray-300">
+                  {result.events.map((e, i) => (
+                    <li key={i}>
+                      Block {e.block} —{" "}
+                      <a
+                        href={`https://basescan.org/tx/${e.txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:underline"
+                      >
+                        {e.txHash.slice(0, 10)}...
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result.sourcePreview && (
+              <div className="mt-3">
+                <p className="text-green-400 font-medium">📄 Source Preview:</p>
+                <pre className="text-xs bg-black/40 rounded-xl p-3 mt-1 overflow-x-auto text-gray-300">
+                  {result.sourcePreview}
+                </pre>
+              </div>
+            )}
+
+            <p className="mt-3">
               <a
                 href={`https://basescan.org/address/${result.address}`}
                 target="_blank"
