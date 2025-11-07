@@ -1,42 +1,53 @@
+import Link from "next/link";
+
 export default function Footer() {
   return (
-    <footer className="text-[11px] text-textSecondary text-center mt-6 mb-3">
-      <div className="flex justify-center gap-3">
-        <a
-          href="/"
-          className="hover:text-white transition"
-        >
-          Main
-        </a>
-        <a
-          href="/tools"
-          className="hover:text-white transition"
-        >
-          Tools
-        </a>
-        <a
-          href="/playground"
-          className="hover:text-white transition"
-        >
-          Playground
-        </a>
-        <a
-          href="/about"
-          className="hover:text-white transition"
-        >
-          About
-        </a>
-      </div>
-      <div className="mt-2 flex justify-center items-center gap-1">
-        <span className="w-2.5 h-2.5 bg-[#0000ff] rounded-none"></span>
-        <a
-          href="https://farcaster.xyz/mdqst"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:text-white transition"
-        >
-          Built for Base by mdqst
-        </a>
+    <footer className="text-center text-xs text-gray-400 pb-6 mt-4">
+      <div className="flex flex-col items-center gap-1">
+        <div className="flex gap-4">
+          <Link
+            href="/"
+            className="hover:text-white transition-colors duration-200"
+          >
+            Main
+          </Link>
+          <Link
+            href="/tools"
+            className="hover:text-white transition-colors duration-200"
+          >
+            Tools
+          </Link>
+          <Link
+            href="/playground"
+            className="hover:text-white transition-colors duration-200"
+          >
+            Playground
+          </Link>
+          <Link
+            href="/about"
+            className="hover:text-white transition-colors duration-200"
+          >
+            About
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-1 text-[11px] mt-0.5">
+          <div
+            className="w-2 h-2"
+            style={{ backgroundColor: "#0000ff" }}
+          />
+          <span>
+            Built for Base by{" "}
+            <a
+              href="https://farcaster.xyz/mdqst"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:underline"
+            >
+              mdqst
+            </a>
+          </span>
+        </div>
       </div>
     </footer>
   );
