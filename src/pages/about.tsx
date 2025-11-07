@@ -3,52 +3,78 @@ import Link from "next/link";
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0f0f12] to-[#1a1a1d] text-gray-100 flex flex-col items-center justify-center px-4 py-10">
+    <main className="flex flex-col items-center justify-start min-h-screen bg-background text-textPrimary px-4 py-8">
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.4s ease-out;
+        }
+      `}</style>
+
       <motion.div
-        initial={{ opacity: 0, scale: 0.97 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        className="w-full max-w-xl rounded-2xl border border-gray-800 bg-[#151518]/80 backdrop-blur-sm shadow-lg p-8 md:p-10 text-center"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="w-full max-w-md bg-surface rounded-2xl p-5 shadow-xl shadow-black/50 border border-white/10 animate-fadeIn"
       >
-        <h1 className="text-2xl md:text-3xl font-bold mb-4 text-white">
-          Base Detective
-        </h1>
-
-        <p className="text-gray-300 text-base leading-relaxed mb-4">
-          <strong>Base Detective</strong> is an interactive onchain learning
-          experience that turns blockchain investigation into a game.
+        {/* Подзаголовок в стиле miniapp */}
+        <p className="text-[10px] text-textSecondary uppercase tracking-[0.18em] mb-2">
+          📜 About this miniapp
         </p>
 
-        <p className="text-gray-400 text-sm leading-relaxed mb-4">
-          Each week, you’ll face a new mystery — inspired by real smart contract
-          exploits, DeFi hacks, and web3 puzzles.
-        </p>
+        <header className="flex flex-col gap-1 mb-4">
+          <h1 className="text-lg font-semibold text-white flex items-center gap-2">
+            🕵️ Base Detective
+          </h1>
+        </header>
 
-        <p className="text-gray-400 text-sm leading-relaxed mb-4">
-          Solve questions, analyze clues, and uncover what went wrong. At the
-          end, your result is permanently recorded on Base — proof of your
-          skills and progress as an onchain detective.
-        </p>
+        <section className="flex flex-col gap-3 text-sm text-textSecondary leading-relaxed">
+          <p>
+            <span className="text-textPrimary font-medium">Base Detective</span> is an interactive
+            onchain learning experience that turns blockchain investigation into a game.
+          </p>
 
-        <p className="text-gray-400 text-sm leading-relaxed mb-4">
-          Whether you’re a beginner learning how contracts work or a seasoned
-          dev testing your audit instincts, Base Detective helps you learn
-          security, logic, and onchain behavior through short, story-driven
-          cases.
-        </p>
+          <p>
+            Each week, you’ll face a new mystery — inspired by real smart contract exploits, DeFi
+            hacks, and web3 puzzles.
+          </p>
 
-        <p className="text-gray-300 text-sm leading-relaxed mb-8 font-medium">
-          🕵️‍♂️ New cases are released every week — there’s always a new
-          challenge waiting to be solved.
-        </p>
+          <p>
+            Solve questions, analyze clues, and uncover what went wrong. At the end, your result is
+            permanently recorded on Base — proof of your skills and progress as an onchain
+            detective.
+          </p>
 
-        <Link
-          href="/"
-          className="inline-block px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition"
-        >
-          🔍 Back to the Case
-        </Link>
+          <p>
+            Whether you’re a beginner learning how contracts work or a seasoned dev testing your
+            audit instincts, Base Detective helps you learn security, logic, and onchain behavior
+            through short, story-driven cases.
+          </p>
+
+          <p className="text-textPrimary font-medium">
+            🕵️‍♂️ New cases are released every week — there’s always a new challenge waiting to be
+            solved.
+          </p>
+        </section>
+
+        <div className="mt-5">
+          <Link
+            href="/"
+            className="w-full inline-flex items-center justify-center rounded-xl bg-accent text-white font-medium text-sm py-3 shadow-lg shadow-blue-500/20 hover:opacity-90 transition"
+          >
+            🔍 Back to the Case
+          </Link>
+        </div>
       </motion.div>
-    </div>
+    </main>
   );
 }
