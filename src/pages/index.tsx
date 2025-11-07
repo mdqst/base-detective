@@ -3,6 +3,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import data from "../data/questions_case1.json";
 import { getFarcasterProvider, completeCaseTx } from "../hooks/useContract";
 import WalletConnectButton from "../components/WalletConnectButton";
+import Footer from "../components/Footer";
 
 type Question = { id: number; text: string; answers: string[] };
 type CaseData = { caseId: number; title: string; intro: string; questions: Question[] };
@@ -323,8 +324,8 @@ export default function Home() {
 
       <footer className="text-[10px] text-textSecondary mt-6 opacity-60 text-center leading-relaxed z-10">
         <div>Contract: 0xfbc5fbe823f76964de240433ad00651a76c672c8</div>
-        <div>Network: Base Mainnet (chainId 8453)</div>
       </footer>
+      <Footer />
     </main>
   );
 }
