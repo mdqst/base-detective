@@ -17,9 +17,7 @@ export default function Footer() {
           About
         </Link>
 
-        <span className="text-gray-700">·</span>
-
-        <motion.span
+       <motion.span
           animate={{
             scale: [1, 1.3, 1],
             color: ["#60a5fa", "#3b82f6", "#60a5fa"],
