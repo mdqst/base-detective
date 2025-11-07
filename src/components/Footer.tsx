@@ -6,6 +6,12 @@ export default function Footer() {
       <div className="flex flex-col items-center gap-1">
         <div className="flex gap-4">
           <Link
+            href="/"
+            className="hover:text-white transition-colors duration-200"
+          >
+            Main
+          </Link>
+          <Link
             href="/tools"
             className="hover:text-white transition-colors duration-200"
           >
