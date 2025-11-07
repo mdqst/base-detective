@@ -21,7 +21,7 @@ export default function Footer() {
 
         <div className="flex items-center gap-1 text-[11px] mt-1">
           <div
-            className="w-2 h-2 rounded-[3px]"
+            className="w-2 h-2"
             style={{ backgroundColor: "#0000ff" }}
           />
           <span>
