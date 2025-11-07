@@ -26,9 +26,8 @@ export default function AboutPage() {
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="w-full max-w-md bg-surface rounded-2xl p-5 shadow-xl shadow-black/50 border border-white/10 animate-fadeIn"
       >
-        {/* Подзаголовок в стиле miniapp */}
         <p className="text-[10px] text-textSecondary uppercase tracking-[0.18em] mb-2">
-          📜 About this miniapp
+          📜 About
         </p>
 
         <header className="flex flex-col gap-1 mb-4">
@@ -44,13 +43,13 @@ export default function AboutPage() {
           </p>
 
           <p>
-            Each week, you’ll face a new mystery — inspired by real smart contract exploits, DeFi
+            Each week, you’ll face a new mystery - inspired by real smart contract exploits, DeFi
             hacks, and web3 puzzles.
           </p>
 
           <p>
             Solve questions, analyze clues, and uncover what went wrong. At the end, your result is
-            permanently recorded on Base — proof of your skills and progress as an onchain
+            permanently recorded on Base - proof of your skills and progress as an onchain
             detective.
           </p>
 
@@ -61,7 +60,7 @@ export default function AboutPage() {
           </p>
 
           <p className="text-textPrimary font-medium">
-            🕵️‍♂️ New cases are released every week — there’s always a new challenge waiting to be
+            🕵️‍♂️ New cases are released every week - there’s always a new challenge waiting to be
             solved.
           </p>
         </section>
