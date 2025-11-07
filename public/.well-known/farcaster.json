@@ -9,7 +9,7 @@
     "splashBackgroundColor": "#000000",
     "webhookUrl": "https://base-detective.vercel.app/api/webhook",
     "subtitle": "Connect and start",
-    "description": "Players solve an onchain incident by answering 10 multiple-choice questions.",
+    "description": "Players solve an onchain incident by answering 10 multiple-choice questions",
     "primaryCategory": "education",
     "tags": [
       "detective",
