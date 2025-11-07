@@ -4,7 +4,7 @@ import Footer from "../components/Footer";
 
 export default function AboutPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-background text-textPrimary items-center px-4 py-8">
+    <div className="flex flex-col items-center bg-background text-textPrimary px-4 py-8">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -59,9 +59,7 @@ export default function AboutPage() {
         </div>
       </motion.div>
 
-      <div className="mt-6">
-        <Footer />
-      </div>
+      <Footer />
     </div>
   );
 }
