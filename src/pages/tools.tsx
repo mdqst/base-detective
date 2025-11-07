@@ -41,11 +41,86 @@ export default function ToolsPage() {
       ]);
 
       const verified = bytecode && bytecode.length > 2;
+      let contractType = "EOA (Externally Owned Account)";
+      let isProxy = false;
+
+      if (verified) {
+        // Пробуем определить тип контракта
+        try {
+          // ERC165 поддержка — определим ERC721 или ERC1155
+          const erc165 = await client.readContract({
+            address,
+            abi: [
+              {
+                name: "supportsInterface",
+                type: "function",
+                stateMutability: "view",
+                inputs: [{ name: "interfaceId", type: "bytes4" }],
+                outputs: [{ name: "", type: "bool" }],
+              },
+            ],
+            functionName: "supportsInterface",
+            args: ["0x80ac58cd"], // ERC721
+          });
+
+          if (erc165) contractType = "ERC721 NFT";
+          else {
+            const erc1155 = await client.readContract({
+              address,
+              abi: [
+                {
+                  name: "supportsInterface",
+                  type: "function",
+                  stateMutability: "view",
+                  inputs: [{ name: "interfaceId", type: "bytes4" }],
+                  outputs: [{ name: "", type: "bool" }],
+                },
+              ],
+              functionName: "supportsInterface",
+              args: ["0xd9b67a26"], // ERC1155
+            });
+            if (erc1155) contractType = "ERC1155 Multi Token";
+          }
+        } catch {
+          // Не поддерживает supportsInterface → возможно ERC20
+          try {
+            const symbol = await client.readContract({
+              address,
+              abi: [
+                {
+                  name: "symbol",
+                  type: "function",
+                  stateMutability: "view",
+                  inputs: [],
+                  outputs: [{ type: "string" }],
+                },
+              ],
+              functionName: "symbol",
+            });
+            if (symbol) contractType = "ERC20 Token";
+          } catch {
+            // Может быть прокси?
+            try {
+              const implSlot =
+                "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"; // EIP-1967 slot
+              const impl = await client.getStorageAt({ address, slot: implSlot });
+              if (impl && impl !== "0x0") {
+                contractType = "Proxy Contract";
+                isProxy = true;
+              }
+            } catch {
+              contractType = "Custom Contract";
+            }
+          }
+        }
+      }
 
       setResult({
         address,
         verified,
         balance: formatEther(balance),
+        contractType,
+        isProxy,
       });
     } catch (err) {
       console.error(err);
@@ -108,6 +183,15 @@ export default function ToolsPage() {
               <span className="text-gray-400">Balance:</span>{" "}
               {result.balance} ETH
             </p>
+            <p>
+              <span className="text-gray-400">Contract Type:</span>{" "}
+              {result.contractType}
+            </p>
+            {result.isProxy && (
+              <p className="text-yellow-400 text-xs mt-1">
+                ⚠️ This contract might be an upgradeable proxy
+              </p>
+            )}
             <p className="mt-2">
               <a
                 href={`https://basescan.org/address/${result.address}`}
