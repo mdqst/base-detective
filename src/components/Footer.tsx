@@ -7,16 +7,25 @@ export default function Footer() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="mt-12 text-xs text-gray-600 flex flex-col items-center gap-2 pb-6"
+      className="mt-10 text-[11px] text-gray-600 flex flex-col items-center gap-1 pb-5"
     >
       <div className="flex items-center space-x-2">
+        <Link
+          href="/about"
+          className="text-gray-500 hover:text-blue-400 transition"
+        >
+          About
+        </Link>
+
+        <span className="text-gray-700">·</span>
+
         <motion.span
           animate={{
             scale: [1, 1.3, 1],
             color: ["#60a5fa", "#3b82f6", "#60a5fa"],
           }}
           transition={{ duration: 1.2, repeat: Infinity }}
-          className="text-blue-400 text-base"
+          className="text-blue-400 text-sm"
         >
           💙
         </motion.span>
@@ -24,21 +33,10 @@ export default function Footer() {
           href="https://farcaster.xyz/mdqst"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:text-blue-400 transition text-sm"
+          className="hover:text-blue-400 transition"
         >
           Built for Base by <span className="font-semibold">mdqst</span>
         </a>
-
-        {/* Divider */}
-        <span className="text-gray-700">·</span>
-
-        {/* About link */}
-        <Link
-          href="/about"
-          className="text-sm text-gray-400 hover:text-blue-400 transition"
-        >
-          About
-        </Link>
       </div>
     </motion.footer>
   );
