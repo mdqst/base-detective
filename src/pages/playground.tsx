@@ -12,7 +12,7 @@ type Challenge = {
 
 const CHALLENGES: Challenge[] = [
   {
-    id: "1",
+    id: 1,
     title: "Reentrancy Vulnerability",
     description:
       "A vulnerable withdraw() function sends ETH before updating user balance. How can it be exploited?",
@@ -27,7 +27,7 @@ const CHALLENGES: Challenge[] = [
       "Reentrancy works when external calls happen before state updates. Attacker re-enters withdraw() through fallback and drains funds.",
   },
   {
-    id: "2",
+    id: 2,
     title: "Integer Overflow",
     description:
       "A token uses uint8 for balances without SafeMath. How could an attacker exploit this?",
@@ -42,7 +42,7 @@ const CHALLENGES: Challenge[] = [
       "Without overflow checks, balance arithmetic wraps around at 256. Repeated transfers can overflow balances.",
   },
   {
-    id: "3",
+    id: 3,
     title: "Access Control Flaw",
     description:
       "The contract has setOwner() callable by anyone because the constructor wasn’t run. What’s the issue?",
