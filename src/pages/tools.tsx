@@ -15,9 +15,31 @@ const client = createPublicClient({
   transport: http(process.env.NEXT_PUBLIC_RPC_URL || "https://mainnet.base.org"),
 });
 
+type AnalysisEvent = {
+  txHash: string;
+  block: number;
+};
+
+type AnalysisStats = {
+  txCount?: number;
+  lastActivity?: string;
+};
+
+type AnalysisResult = {
+  address: string;
+  verified: boolean;
+  balance: string;
+  contractType: string;
+  owner: string;
+  riskFlags: string[];
+  events: AnalysisEvent[];
+  sourcePreview: string;
+  stats: AnalysisStats;
+};
+
 export default function ToolsPage() {
   const [input, setInput] = useState("");
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -34,23 +56,22 @@ export default function ToolsPage() {
     setLoading(true);
 
     try {
-      // базовая информация
-      const [bytecode, balance] = await Promise.all([
+      const [bytecodeRaw, balance] = await Promise.all([
         client.getBytecode({ address }),
         client.getBalance({ address }),
       ]);
 
-      const verified = bytecode && bytecode.length > 2;
+      const bytecode = bytecodeRaw as string | null;
+      const verified = !!bytecode && bytecode.length > 2;
       let contractType = "EOA (Externally Owned Account)";
       let owner = "Unknown";
-      let isProxy = false;
       let riskFlags: string[] = [];
-      let events: any[] = [];
+      let events: AnalysisEvent[] = [];
       let sourcePreview = "";
-      let stats: any = {};
+      let stats: AnalysisStats = {};
 
       if (verified) {
-        // определение типа контракта
+        // Тип контракта
         try {
           const symbol = await client.readContract({
             address,
@@ -88,7 +109,7 @@ export default function ToolsPage() {
           }
         }
 
-        // owner finder
+        // Owner
         try {
           const ownerAddr = await client.readContract({
             address,
@@ -103,17 +124,25 @@ export default function ToolsPage() {
             ],
             functionName: "owner",
           });
-          owner = ownerAddr;
+          owner = ownerAddr as string;
         } catch {
           owner = "Unknown";
         }
 
-        // risk scan
-        if (bytecode.includes("delegatecall")) riskFlags.push("Uses delegatecall");
-        if (bytecode.includes("selfdestruct")) riskFlags.push("Contains selfdestruct");
-        if (bytecode.length < 1000) riskFlags.push("Unusually small bytecode (possible stub)");
+        // Risk scan
+        if (bytecode && typeof bytecode === "string") {
+          if (bytecode.includes("delegatecall")) {
+            riskFlags.push("Uses delegatecall");
+          }
+          if (bytecode.includes("selfdestruct")) {
+            riskFlags.push("Contains selfdestruct");
+          }
+          if (bytecode.length < 1000) {
+            riskFlags.push("Unusually small bytecode (possible stub)");
+          }
+        }
 
-        // events
+        // Events
         try {
           const latestBlock = await client.getBlockNumber();
           const fromBlock = Number(latestBlock) - 5000;
@@ -122,40 +151,44 @@ export default function ToolsPage() {
             fromBlock: BigInt(fromBlock),
             toBlock: latestBlock,
           });
-          events = logs.slice(-5).map((log: any) => ({
-            txHash: log.transactionHash,
+          events = logs.slice(-5).map((log) => ({
+            txHash: log.transactionHash as string,
             block: Number(log.blockNumber),
           }));
         } catch {
           events = [];
         }
 
-        // source preview
+        // Source preview
         try {
           const resp = await fetch(
             `https://api.basescan.org/api?module=contract&action=getsourcecode&address=${address}`
           );
           const data = await resp.json();
           if (data?.result?.[0]?.SourceCode) {
-            const lines = data.result[0].SourceCode.split("\n").slice(0, 8);
+            const lines = (data.result[0].SourceCode as string)
+              .split("\n")
+              .slice(0, 8);
             sourcePreview = lines.join("\n");
           }
         } catch {
           sourcePreview = "";
         }
 
-        // stats
+        // Stats
         try {
           const txResp = await fetch(
             `https://api.basescan.org/api?module=account&action=txlist&address=${address}&sort=desc`
           );
           const txData = await txResp.json();
           if (txData?.result?.length) {
-            const count = txData.result.length;
+            const count = txData.result.length as number;
             const last = txData.result[0];
             stats = {
               txCount: count,
-              lastActivity: new Date(Number(last.timeStamp) * 1000).toLocaleDateString(),
+              lastActivity: new Date(
+                Number(last.timeStamp) * 1000
+              ).toLocaleDateString(),
             };
           }
         } catch {
@@ -199,17 +232,15 @@ export default function ToolsPage() {
           </p>
         </header>
 
-        {/* 📘 Информационный блок */}
         <div className="bg-black/30 rounded-xl border border-white/10 p-3 mb-5 text-xs text-gray-300">
           <p className="text-blue-400 mb-1 font-medium">ℹ️ How to use these tools</p>
           <ul className="list-disc list-inside space-y-1">
             <li>Enter any Base contract address to analyze it</li>
-            <li>Check if it's ERC20, NFT, or Proxy</li>
-            <li>View source code, events, and risk indicators</li>
+            <li>Check if it&apos;s ERC20, NFT, or a custom contract</li>
+            <li>Review source, events, and basic risk indicators</li>
           </ul>
         </div>
 
-        {/* 🔍 Основной анализ */}
         <div className="flex flex-col gap-3">
           <input
             value={input}
@@ -228,7 +259,6 @@ export default function ToolsPage() {
 
         {error && <p className="text-red-400 text-xs mt-3">{error}</p>}
 
-        {/* 📊 Результаты */}
         {result && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -236,16 +266,35 @@ export default function ToolsPage() {
             className="mt-5 bg-black/30 rounded-xl border border-white/10 p-4 text-sm space-y-2"
           >
             <p className="text-accent font-semibold mb-2">🔎 Analysis Result</p>
-            <p><span className="text-gray-400">Address:</span> {result.address}</p>
-            <p><span className="text-gray-400">Verified:</span> {result.verified ? "✅ Yes" : "❌ No"}</p>
-            <p><span className="text-gray-400">Balance:</span> {result.balance} ETH</p>
-            <p><span className="text-gray-400">Type:</span> {result.contractType}</p>
-            <p><span className="text-gray-400">Owner:</span> {result.owner}</p>
+            <p>
+              <span className="text-gray-400">Address:</span> {result.address}
+            </p>
+            <p>
+              <span className="text-gray-400">Verified:</span>{" "}
+              {result.verified ? "✅ Yes" : "❌ No"}
+            </p>
+            <p>
+              <span className="text-gray-400">Balance:</span>{" "}
+              {result.balance} ETH
+            </p>
+            <p>
+              <span className="text-gray-400">Type:</span>{" "}
+              {result.contractType}
+            </p>
+            <p>
+              <span className="text-gray-400">Owner:</span> {result.owner}
+            </p>
 
-            {result.stats?.txCount && (
+            {result.stats.txCount && (
               <>
-                <p><span className="text-gray-400">Transactions:</span> {result.stats.txCount}</p>
-                <p><span className="text-gray-400">Last Activity:</span> {result.stats.lastActivity}</p>
+                <p>
+                  <span className="text-gray-400">Transactions:</span>{" "}
+                  {result.stats.txCount}
+                </p>
+                <p>
+                  <span className="text-gray-400">Last Activity:</span>{" "}
+                  {result.stats.lastActivity}
+                </p>
               </>
             )}
 
@@ -253,7 +302,7 @@ export default function ToolsPage() {
               <div className="mt-2">
                 <p className="text-red-400 font-medium">⚠️ Risk Flags:</p>
                 <ul className="list-disc list-inside text-xs text-gray-300">
-                  {result.riskFlags.map((r, i) => (
+                  {result.riskFlags.map((r: string, i: number) => (
                     <li key={i}>{r}</li>
                   ))}
                 </ul>
@@ -264,7 +313,7 @@ export default function ToolsPage() {
               <div className="mt-2">
                 <p className="text-blue-400 font-medium">📜 Recent Events:</p>
                 <ul className="list-disc list-inside text-xs text-gray-300">
-                  {result.events.map((e, i) => (
+                  {result.events.map((e: AnalysisEvent, i: number) => (
                     <li key={i}>
                       Block {e.block} —{" "}
                       <a
