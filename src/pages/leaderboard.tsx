@@ -29,16 +29,16 @@ export default function LeaderboardPage() {
         const users = await publicClient.readContract({
           address: contractAddress as `0x${string}`,
           abi: contractABI.abi,
-          functionName: "getCompletedUsers", // замени, если у тебя другое имя функции
+          functionName: "getCompletedUsers", // замени на свою функцию, если нужно
         });
 
         const addresses = users as string[];
 
-        // 🚀 Получаем Farcaster handle'ы через Miniapp SDK
         const enriched = await Promise.all(
           addresses.map(async (addr) => {
             try {
-              const fcUser = await sdk.actions.lookupUserByAddress(addr);
+              // ✅ правильный вызов по новому SDK
+              const fcUser = await sdk.wallet.lookupUserByAddress(addr);
               return {
                 address: addr,
                 handle: fcUser?.username ? `@${fcUser.username}` : undefined,
