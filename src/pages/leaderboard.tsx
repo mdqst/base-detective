@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import Footer from "../components/Footer";
 import { useEffect, useState } from "react";
-import { createPublicClient, http, formatAddress } from "viem";
+import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import contractABI from "../abi/SmartContractDetective.json";
 import { contractAddress } from "../hooks/useContract";
@@ -12,6 +12,11 @@ const publicClient = createPublicClient({
   transport: http(process.env.NEXT_PUBLIC_RPC_URL || "https://mainnet.base.org"),
 });
 
+// простая функция форматирования адреса
+function shortenAddress(addr: string) {
+  return addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
+}
+
 export default function LeaderboardPage() {
   const [leaders, setLeaders] = useState<{ address: string; cases: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,17 +24,16 @@ export default function LeaderboardPage() {
   useEffect(() => {
     async function fetchLeaders() {
       try {
-        // ⚙️ Чтение данных с контракта (замени имя функции, если другое)
+        // ⚙️ вызов контракта для получения списка прошедших квест
         const users = await publicClient.readContract({
           address: contractAddress as `0x${string}`,
           abi: contractABI.abi,
-          functionName: "getCompletedUsers",
+          functionName: "getCompletedUsers", // замени на свою функцию
         });
 
-        // users — массив адресов, можно добавить счетчик кейсов
         const formatted = (users as string[]).map((u) => ({
           address: u,
-          cases: 1, // или заменить, если контракт возвращает количество
+          cases: 1, // можно заменить на реальное значение, если контракт возвращает количество
         }));
 
         setLeaders(formatted);
@@ -71,7 +75,7 @@ export default function LeaderboardPage() {
               >
                 <div className="flex flex-col">
                   <span className="font-medium text-white">
-                    {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                    {shortenAddress(user.address)}
                   </span>
                   <span className="text-[11px] text-textSecondary">
                     Detective Rank #{index + 1}
