@@ -85,4 +85,4 @@ Now you can paste the miniapp URL in Farcaster and it will render natively.
 
 ---
 
-Built for Farcaster. Powered by Base.
+Built for Farcaster Community. Powered by Base.
